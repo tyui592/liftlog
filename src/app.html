@@ -145,6 +145,7 @@ body.has-actionbar .timer{bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 
 /* sheets (full-screen overlays) */
 .sheet{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.sheet .body>*{flex:none}
 .sheet .body{flex:1;overflow-y:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:8px 120px;display:flex;flex-direction:column;gap:12px}
 .sheet .foot{position:absolute;left:0;right:0;bottom:0;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(to top,var(--bg) 75%,transparent);display:flex;gap:10px}
 .sheet .foot .btn{flex:1}
@@ -178,6 +179,21 @@ body.has-actionbar .timer{bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .exp-b .li:last-of-type{border-bottom:0}
 .exp-b .li .s{color:var(--muted);font-family:var(--font-num);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 
+/* exercise thumbnails (free-exercise-db, public domain) */
+.thumb{width:52px;height:52px;border-radius:12px;background:var(--surface-2);flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;font-weight:700;position:relative}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.sm{width:40px;height:40px;border-radius:10px;font-size:11px}
+.thumb.xs{width:32px;height:32px;border-radius:50%;font-size:10px;box-shadow:0 0 0 2px var(--surface)}
+.thumb.tap{cursor:pointer}
+.thumb.tap:active{opacity:.8}
+.avatars{display:flex;margin-top:6px}
+.avatars .thumb{margin-right:-8px}
+.avatars .thumb.more{background:var(--surface-2);color:var(--muted);font-family:var(--font-num)}
+.frames{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.frames figure{margin:0;display:flex;flex-direction:column;gap:6px}
+.frames img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;background:var(--surface-2)}
+.frames figcaption{font-size:12px;color:var(--muted);text-align:center}
+.item .thumb{margin-left:-2px}
 /* routines */
 .rt{display:flex;flex-direction:column;gap:6px}
 .rt .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -320,6 +336,9 @@ function weekStart(k){const d=parse(k);d.setDate(d.getDate()-d.getDay());return 
 
 /* ===================== domain helpers ===================== */
 const exById=id=>S.exercises.find(e=>e.id===id)||{id,name:'(삭제된 운동)',part:'기타',mode:'weight'};
+const hasImg=ex=>/^ex\d{3}$/.test(ex.id);
+function thumb(ex,cls){const c='thumb '+(cls||'')+(hasImg(ex)?' tap':'');
+  return hasImg(ex)?`<span class="${c}" data-act="ex-info" data-id="${ex.id}"><img src="img/${ex.id}.webp" alt="" loading="lazy" onerror="this.parentNode.textContent='${esc(ex.part)}'"></span>`:`<span class="${c}">${esc(ex.part)}</span>`;}
 const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
 function setVolume(ex,s){return ex.mode==='time'?0:num(s.kg)*num(s.reps);}
 function itemVolume(it){const ex=exById(it.exId);return it.sets.reduce((a,s)=>a+setVolume(ex,s),0);}
@@ -425,7 +444,7 @@ function renderWeek(){
 }
 function renderItem(it,i){
   const ex=exById(it.exId),time=ex.mode==='time',rest=restOf(it);
-  let h=`<section class="card ex" data-item="${it.id}"><div class="ex-head"><span class="ex-idx">${i+1}</span>
+  let h=`<section class="card ex" data-item="${it.id}"><div class="ex-head"><span class="ex-idx">${i+1}</span>${thumb(ex,'sm')}
     <div class="grow"><div class="ex-title"><span class="part">${esc(ex.part)}</span>${esc(ex.name)}</div>
     <div class="ex-meta">${time?'':`<span>종목 볼륨 <b class="num" data-vol="${it.id}">${fmtKg(itemVolume(it))}</b></span>`}
     <button data-act="rest" class="${rest>0?'on':''}">${I.timer}<span>${rest>0?'휴식 '+rest+'초':'휴식 OFF'}</span></button></div></div>
@@ -456,6 +475,7 @@ function renderRoutines(){
     const parts=[];r.items.forEach(i=>{const p=exById(i.exId).part;if(!parts.includes(p))parts.push(p);});
     h+=`<div class="card rt" data-routine="${r.id}"><div class="t"><h3>${esc(r.name)}</h3><button class="iconbtn" data-act="routine-menu" aria-label="루틴 메뉴">${I.more}</button></div>
       <div class="muted" style="font-size:13px">${parts.join(' · ')||'운동 없음'}</div>
+      ${avatars(r)}
       <div class="exs">${r.items.map(i=>esc(exById(i.exId).name)+' <span class="num">'+i.sets.length+'세트</span>').join(' · ')}</div>
       <div class="last">${r.lastUsed?'마지막 운동일 '+fmtDay(r.lastUsed):'수행 기록 없음'}</div>
       <div class="acts"><button class="btn sm primary" data-act="routine-load">${fmtDay(V.date)}에 불러오기</button><button class="btn sm" data-act="routine-edit">편집</button></div></div>`;
@@ -463,6 +483,8 @@ function renderRoutines(){
   return h+'</div>';
 }
 
+function avatars(r){const exs=r.items.map(i=>exById(i.exId));if(!exs.length)return '';const show=exs.slice(0,5);
+  return '<div class="avatars">'+show.map(e=>thumb(e,'xs')).join('')+(exs.length>5?`<span class="thumb xs more">+${exs.length-5}</span>`:'')+'</div>';}
 /* ---- stats ---- */
 function renderStats(){
   const dates=sortedDates();
@@ -588,13 +610,13 @@ function pickerAdd(){
   h+=`<div class="row" style="justify-content:flex-end"><span class="seg"><button data-act="picker-sort" data-v="recent" class="${P.sort==='recent'?'on':''}">최근 운동순</button><button data-act="picker-sort" data-v="name" class="${P.sort==='name'?'on':''}">부위·이름순</button></span></div>`;
   if(!list.length)h+=`<div class="empty" style="padding-top:20px"><p>${P.part==='북마크'&&!q?'북마크한 운동이 없어요. 운동 목록에서 책갈피를 눌러 추가하세요.':'검색 결과가 없어요. 아래 + 버튼으로 직접 추가할 수 있어요.'}</p></div>`;
   else h+='<div class="list">'+list.map(e=>{const sel=P.selected.includes(e.id);
-    return `<div class="item ${sel?'sel':''}" data-act="picker-sel" data-id="${e.id}"><span class="cb">${sel?I.check:''}</span><div class="grow"><div class="name"><span class="part">${esc(e.part)}</span>${esc(e.name)}${e.custom?' <span class="badge">내 운동</span>':''}</div>${lm[e.id]?`<div class="sub">${ago(lm[e.id])} · ${lastSummary(e.id)}</div>`:''}</div><button class="star ${e.bookmark?'on':''}" data-act="bookmark" data-id="${e.id}" aria-label="북마크">${I.star}</button></div>`;}).join('')+'</div>';
+    return `<div class="item ${sel?'sel':''}" data-act="picker-sel" data-id="${e.id}"><span class="cb">${sel?I.check:''}</span>${thumb(e)}<div class="grow"><div class="name"><span class="part">${esc(e.part)}</span>${esc(e.name)}${e.custom?' <span class="badge">내 운동</span>':''}</div>${lm[e.id]?`<div class="sub">${ago(lm[e.id])} · ${lastSummary(e.id)}</div>`:''}</div><button class="star ${e.bookmark?'on':''}" data-act="bookmark" data-id="${e.id}" aria-label="북마크">${I.star}</button></div>`;}).join('')+'</div>';
   return h;
 }
 function lastSummary(exId){const lr=lastRecord(exId);if(!lr)return '';const ex=exById(exId);const s=lr.sets.filter(x=>x.kg!==''||x.reps!=='');if(!s.length)return '';const top=s.reduce((a,x)=>num(x.kg)>num(a.kg)?x:a,s[0]);return ex.mode==='time'?s.length+'세트 · '+num(top.kg)+'분':s.length+'세트 · '+num(top.kg)+'kg×'+num(top.reps);}
 function pickerRoutine(){
   if(!S.routines.length)return `<div class="empty">${I.tabRoutine}<h2>저장된 루틴이 없어요</h2><p>루틴 탭에서 만들거나, 오늘 운동을 마친 뒤 루틴으로 저장하세요.</p></div>`;
-  return S.routines.map(r=>`<div class="card rt"><div class="t"><h3>${esc(r.name)}</h3></div><div class="exs">${r.items.map(i=>esc(exById(i.exId).name)+' <span class="num">'+i.sets.length+'세트</span>').join(' · ')}</div><div class="last">${r.lastUsed?'마지막 운동일 '+fmtDay(r.lastUsed):'수행 기록 없음'}</div><div class="acts"><button class="btn sm primary" data-act="picker-routine" data-id="${r.id}">불러오기</button></div></div>`).join('');
+  return S.routines.map(r=>`<div class="card rt"><div class="t"><h3>${esc(r.name)}</h3></div>${avatars(r)}<div class="exs">${r.items.map(i=>esc(exById(i.exId).name)+' <span class="num">'+i.sets.length+'세트</span>').join(' · ')}</div><div class="last">${r.lastUsed?'마지막 운동일 '+fmtDay(r.lastUsed):'수행 기록 없음'}</div><div class="acts"><button class="btn sm primary" data-act="picker-routine" data-id="${r.id}">불러오기</button></div></div>`).join('');
 }
 function pickerPast(){
   const ds=sortedDates().filter(k=>k!==V.date).reverse().slice(0,40);
@@ -612,7 +634,7 @@ function renderRoutineEditor(){
   let h=`<div class="sheet"><header class="topbar"><button class="iconbtn" data-act="re-close" aria-label="닫기">${I.back}</button><h1>${RE.isNew?'새 루틴':'루틴 편집'}</h1><span class="iconbtn"></span></header><div class="body">`;
   h+=`<div class="card"><div class="field"><label>루틴 이름</label><input type="text" id="re-name" value="${esc(RE.name)}" placeholder="예: 등·이두 (월)" data-act="re-name"></div></div>`;
   RE.items.forEach((it,i)=>{const ex=exById(it.exId),time=ex.mode==='time';
-    h+=`<section class="card ex" data-ri="${i}"><div class="ex-head"><span class="ex-idx">${i+1}</span><div class="grow"><div class="ex-title"><span class="part">${esc(ex.part)}</span>${esc(ex.name)}</div></div>
+    h+=`<section class="card ex" data-ri="${i}"><div class="ex-head"><span class="ex-idx">${i+1}</span>${thumb(ex,'sm')}<div class="grow"><div class="ex-title"><span class="part">${esc(ex.part)}</span>${esc(ex.name)}</div></div>
       <button class="iconbtn" data-act="re-up" aria-label="위로">${I.up}</button><button class="iconbtn" data-act="re-down" aria-label="아래로">${I.down}</button><button class="iconbtn" data-act="re-del" aria-label="삭제">${I.trash}</button></div>
       <div class="sets noDone"><span class="h">세트</span><span class="h">${time?'분':'kg'}</span><span class="h">${time?'강도/거리':'회'}</span>`;
     it.sets.forEach((s,j)=>{h+=`<span class="sn">${j+1}</span><input type="text" inputmode="decimal" id="rkg-${i}-${j}" value="${esc(s.kg)}" data-rkg="${j}"><input type="text" inputmode="decimal" id="rrp-${i}-${j}" value="${esc(s.reps)}" data-rreps="${j}">`;});
@@ -640,6 +662,12 @@ function restBox(it){
     <div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" id="rest-ok">적용</button></div>`);
   document.querySelectorAll('[data-rv]').forEach(b=>{b.onclick=()=>{$('#rest-custom').value=b.dataset.rv;document.querySelectorAll('[data-rv]').forEach(x=>x.classList.toggle('on',x===b));};});
   $('#rest-ok').onclick=()=>{const v=Math.max(0,Math.round(num($('#rest-custom').value)));it.restSec=v;save();closeModal();render();};
+}
+function exInfoBox(ex){
+  modal(`<h3><span class="muted" style="font-weight:600;font-size:14px;margin-right:6px">${esc(ex.part)}</span>${esc(ex.name)}</h3>
+    <div class="frames"><figure><img src="img/${ex.id}-0.webp" alt="${esc(ex.name)} 시작 자세"><figcaption>시작</figcaption></figure><figure><img src="img/${ex.id}-1.webp" alt="${esc(ex.name)} 끝 자세"><figcaption>끝</figcaption></figure></div>
+    <p class="muted" style="font-size:11px">사진: free-exercise-db (퍼블릭 도메인)</p>
+    <button class="btn block" data-act="modal-close">닫기</button>`);
 }
 function customExBox(){
   modal(`<h3>사용자 정의 운동</h3><div class="field"><label>이름</label><input type="text" id="cx-name" placeholder="예: 스미스 머신 스쿼트" maxlength="40"></div>
@@ -851,6 +879,7 @@ document.addEventListener('click',e=>{
     case 'picker-part':P.part=v;P.q='';renderPicker();break;
     case 'picker-sort':P.sort=v;renderPicker();break;
     case 'picker-sel':{const id=b.dataset.id;if(P.mode==='replace')P.selected=[id];else{const i=P.selected.indexOf(id);if(i>=0)P.selected.splice(i,1);else P.selected.push(id);}renderPicker();}break;
+    case 'ex-info':exInfoBox(exById(b.dataset.id));break;
     case 'bookmark':{e.stopPropagation();const ex=exById(b.dataset.id);ex.bookmark=!ex.bookmark;save();renderPicker();}break;
     case 'picker-confirm':{
       if(P.mode==='day'){const n=P.selected.length;addExercises(V.date,P.selected);closePicker();render();toast(n+'개 운동을 추가했어요');}
@@ -861,7 +890,7 @@ document.addEventListener('click',e=>{
     case 'picker-expand':P.expanded=P.expanded===v?null:v;renderPicker();break;
     case 'picker-past':loadDay(V.date,S.workouts[v]);closePicker();render();toast(fmtDay(v)+' 운동을 불러왔어요');break;
     case 'custom-new':customExBox();break;
-    /* routines */
+    /* routines (events) */
     case 'routine-new':openRoutineEditor(null);break;
     case 'routine-load':{const r=S.routines.find(x=>x.id===b.closest('[data-routine]').dataset.routine);loadRoutine(V.date,r);V.tab='today';render();toast('"'+r.name+'" 루틴을 불러왔어요');}break;
     case 'routine-edit':openRoutineEditor(S.routines.find(x=>x.id===b.closest('[data-routine]').dataset.routine));break;

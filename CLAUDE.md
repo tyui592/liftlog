@@ -10,4 +10,6 @@
 - 동기화는 `cloud sync` 절의 `C`(메타)·`sync()`·`markLocalChanges()`가 담당. 로컬 저장은 `save()`(→ `persist()` + 변경 감지) 하나로 통일하고, 서버에서 받은 데이터를 적용할 때만 `persist()`를 직접 쓴다.
 - 서버 스키마를 바꾸면 `supabase/schema.sql`과 README의 동기화 절을 같이 갱신한다. 키 체계(`settings`/`exercises`/`routines`/`w:<날짜>`)는 바꾸지 말 것.
 - `supabase.json`은 배포 설정이라 커밋한다. `window.__liftlog`는 테스트용 디버그 핸들.
+- 운동 사진은 `assets/ex/`(WebP) → 빌드 시 `dist/img/`. ID 기반(`img/<exId>.webp`)이라 데이터 모델에는 넣지 않는다. 원본 매핑은 `assets/ex/_source-map.json`.
+- 운동 추가 시트 본문(`.sheet .body`)은 세로 flex라 자식에 `flex:none`이 필수. 빼면 스크롤 가능한 자식이 찌그러진다.
 - 커밋 메시지는 한국어로 짧게.

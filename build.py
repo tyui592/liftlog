@@ -106,4 +106,13 @@ for name in ("icon-180.png", "icon-512.png"):
     if p.exists():
         shutil.copy(p, DIST / name)
 
+# 운동 사진 (assets/ex/*.webp → dist/img/). 출처: free-exercise-db (Unlicense)
+img_dir = DIST / "img"
+img_dir.mkdir(exist_ok=True)
+n = 0
+for p in (ROOT / "assets" / "ex").glob("*.webp"):
+    shutil.copy(p, img_dir / p.name)
+    n += 1
+print("exercise images:", n)
+
 print("built:", sorted(x.name for x in DIST.iterdir()))

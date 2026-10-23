@@ -11,6 +11,7 @@ gymlog/
 ├── supabase.json     ← Supabase URL/anon key (supabase.example.json 참고)
 ├── supabase/schema.sql ← 동기화 테이블·RLS·분석 뷰
 ├── assets/           ← 앱 아이콘 PNG
+│   └── ex/           ← 운동 사진 (exNNN.webp 썸네일, exNNN-0/1.webp 시작·끝 자세). 출처 free-exercise-db, Unlicense
 └── dist/             ← 호스팅에 올리는 완성본
     ├── index.html
     ├── manifest.webmanifest
@@ -38,8 +39,13 @@ gymlog/
 | 11 | 분석: 종목별 최고 무게·추정 1RM(Epley) 추이, 주간 볼륨 8주, 부위별 빈도 4주 | 분석 |
 | 12 | JSON 내보내기/가져오기 | 설정 |
 | 13 | Supabase 클라우드 동기화 (오프라인 우선, 키 단위 last-write-wins) | 설정 |
+| 14 | 운동 사진: 목록·카드 썸네일, 탭하면 시작/끝 자세 보기 (기본 운동 57개) | 운동 추가 / 오늘 |
 
 유산소·플랭크 같은 시간 기준 운동은 `분` / `강도·거리` 열로 기록되고 볼륨 계산에서 제외된다.
+
+## 운동 사진
+
+[free-exercise-db](https://github.com/yuhonas/free-exercise-db)(Unlicense, 퍼블릭 도메인)의 사진을 쓴다. `assets/ex/_source-map.json`이 우리 운동 ID → 원본 슬러그 매핑이다. 새 기본 운동을 추가하면 원본 저장소의 `exercises/<slug>/0.jpg`, `1.jpg`를 받아 썸네일(끝 자세, 정사각 크롭 160px)과 두 프레임(440px)을 WebP로 만들어 `assets/ex/`에 넣는다. 사용자 정의 운동은 사진 없이 부위 글자로 표시된다.
 
 ## 데이터 구조 (localStorage key `liftlog.v1`)
 
