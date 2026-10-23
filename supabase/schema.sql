@@ -11,11 +11,20 @@ create table if not exists public.liftlog_kv (
 
 alter table public.liftlog_kv enable row level security;
 
+-- 본인 행만. (select auth.uid()) 로 감싸면 행마다가 아니라 쿼리당 한 번만 평가된다.
 drop policy if exists "liftlog own rows" on public.liftlog_kv;
-create policy "liftlog own rows" on public.liftlog_kv
-  for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+drop policy if exists "liftlog select own" on public.liftlog_kv;
+drop policy if exists "liftlog insert own" on public.liftlog_kv;
+drop policy if exists "liftlog update own" on public.liftlog_kv;
+drop policy if exists "liftlog delete own" on public.liftlog_kv;
+create policy "liftlog select own" on public.liftlog_kv for select to authenticated
+  using ((select auth.uid()) = user_id);
+create policy "liftlog insert own" on public.liftlog_kv for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+create policy "liftlog update own" on public.liftlog_kv for update to authenticated
+  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "liftlog delete own" on public.liftlog_kv for delete to authenticated
+  using ((select auth.uid()) = user_id);
 
 -- (선택) SQL로 분석할 때 편한 뷰: 날짜별 운동 기록을 행으로 펼침
 create or replace view public.liftlog_sets as
