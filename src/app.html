@@ -123,6 +123,8 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted)}
 .tabbar button svg{width:24px;height:24px}
 .tabbar button.on{color:var(--accent)}
+.tabbar button{position:relative}
+.tabbar button.err::after{content:"";position:absolute;top:8px;right:calc(50% - 18px);width:8px;height:8px;border-radius:50%;background:var(--danger)}
 
 /* empty state */
 .empty{text-align:center;padding:36px 8px 8px;display:flex;flex-direction:column;align-items:center;gap:14px}
@@ -185,7 +187,7 @@ body.has-actionbar .timer{bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .rt .acts{display:flex;gap:8px;margin-top:6px}
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
-.field input[type=text],.field input[type=number],.field select,.field textarea{height:46px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px;width:100%;font-size:16px}
+.field input[type=text],.field input[type=email],.field input[type=password],.field input[type=number],.field select,.field textarea{height:46px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px;width:100%;font-size:16px}
 .field textarea{height:auto;padding:10px 12px;min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
 .sets.noDone{grid-template-columns:52px 1fr 1fr}
 
@@ -261,6 +263,7 @@ body.has-actionbar .timer{bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 <div id="modal"></div>
 <div id="toast" class="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0/dist/umd/supabase.js"></script>
 <script>
 (function(){
 'use strict';
@@ -297,7 +300,8 @@ function normalize(){
   seedExercises().forEach(e=>{if(!have.has(e.id))S.exercises.push(e);});
 }
 let saveT=null;
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('저장 실패: 브라우저 저장 공간을 확인하세요');}},150);}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('저장 실패: 브라우저 저장 공간을 확인하세요');}}
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{persist();markLocalChanges();},150);}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
 /* ===================== date utils ===================== */
@@ -380,7 +384,7 @@ function render(){
 }
 function renderTabbar(){
   const t=[['today','오늘',I.tabToday],['routines','루틴',I.tabRoutine],['stats','분석',I.tabStats],['settings','설정',I.tabSet]];
-  $('#tabbar').innerHTML=t.map(x=>`<button data-tab="${x[0]}" class="${V.tab===x[0]?'on':''}">${x[2]}<span>${x[1]}</span></button>`).join('');
+  $('#tabbar').innerHTML=t.map(x=>`<button data-tab="${x[0]}" class="${V.tab===x[0]?'on':''} ${x[0]==='settings'&&C.status==='error'?'err':''}">${x[2]}<span>${x[1]}</span></button>`).join('');
 }
 function topbar(title,left,right){
   return `<header class="topbar">${left||'<span class="iconbtn"></span>'}<h1>${title}</h1>${right||'<span class="iconbtn"></span>'}</header>`;
@@ -541,12 +545,13 @@ function renderSettings(){
   h+=`<div class="card"><div class="field"><label>사용자 정의 운동 · ${customs.length}개</label></div>
     ${customs.map(e=>`<div class="set-row"><div><div class="t"><span class="muted">${esc(e.part)}</span> ${esc(e.name)}</div><div class="d">${e.mode==='time'?'시간 기준':'무게 × 횟수'}</div></div><button class="btn sm danger" data-act="custom-del" data-id="${e.id}">삭제</button></div>`).join('')}
     <div style="margin-top:10px"><button class="btn sm block" data-act="custom-new">${I.plus} 운동 추가</button></div></div>`;
+  h+=renderSyncCard();
   h+=`<div class="card"><div class="field"><label>데이터</label></div>
     <div class="set-row"><div><div class="t">내보내기</div><div class="d">전체 기록을 JSON으로 복사·저장</div></div><button class="btn sm" data-act="export">내보내기</button></div>
     <div class="set-row"><div><div class="t">가져오기</div><div class="d">내보낸 JSON으로 복원 (현재 데이터 교체)</div></div><button class="btn sm" data-act="import">가져오기</button></div>
     ${hasSample?`<div class="set-row"><div><div class="t">샘플 데이터 삭제</div><div class="d">둘러보기용 기록만 지웁니다</div></div><button class="btn sm danger" data-act="sample-del">삭제</button></div>`:''}
-    <div class="set-row"><div><div class="t">모든 기록 삭제</div><div class="d">운동 기록·루틴·사용자 운동 전체</div></div><button class="btn sm danger" data-act="wipe">전체 삭제</button></div></div>`;
-  h+=`<div class="card"><div class="field"><label>이 앱</label></div><p class="muted" style="margin:0;font-size:13px;line-height:1.6">기록은 이 브라우저 안에만 저장됩니다. 아이폰에서는 Safari 공유 버튼 → <b>홈 화면에 추가</b>로 설치하면 전체화면 앱처럼 쓸 수 있어요. 기기를 바꾸기 전에는 꼭 내보내기로 백업하세요.</p></div>`;
+    <div class="set-row"><div><div class="t">모든 기록 삭제</div><div class="d">운동 기록·루틴·사용자 운동 전체${syncUser?' · 서버 기록도 함께 삭제':''}</div></div><button class="btn sm danger" data-act="wipe">전체 삭제</button></div></div>`;
+  h+=`<div class="card"><div class="field"><label>이 앱</label></div><p class="muted" style="margin:0;font-size:13px;line-height:1.6">기록은 이 브라우저에 저장되고, 로그인하면 Supabase 서버에도 동기화됩니다. 아이폰에서는 Safari 공유 버튼 → <b>홈 화면에 추가</b>로 설치하면 전체화면 앱처럼 쓸 수 있어요. 기기를 바꾸기 전에는 꼭 내보내기로 백업하세요.</p></div>`;
   return h+'</div>';
 }
 
@@ -710,6 +715,104 @@ function makeSample(){
   save();
 }
 
+
+/* ===================== cloud sync (Supabase) ===================== */
+/* 키 단위 last-write-wins 동기화. 로컬이 1차 저장소, 서버 테이블 liftlog_kv(user_id,key,value,deleted,updated_at).
+   키: settings | exercises | routines | w:<YYYY-MM-DD>. 삭제는 deleted=true 행(tombstone)으로 전파. */
+const SYNC_KEY='liftlog.sync';
+const C={url:'',anon:'',meta:{},last:{},cur:{},lastSyncAt:null,status:'off',error:''};
+let sb=null,syncUser=null,pushT=null,syncing=false,lastSyncTick=0;
+function canon(v){if(Array.isArray(v))return '['+v.map(canon).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}';return JSON.stringify(v===undefined?null:v);}
+function hash(v){const s=canon(v);let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0;return h.toString(36)+'.'+s.length.toString(36);}
+function loadSync(){
+  try{const r=localStorage.getItem(SYNC_KEY);if(r){const d=JSON.parse(r);['url','anon','meta','last','cur','lastSyncAt'].forEach(k=>{if(d[k]!=null)C[k]=d[k];});}}catch(e){}
+  const cfg=window.LIFTLOG_SUPABASE;if((!C.url||!C.anon)&&cfg&&cfg.url&&cfg.anon){C.url=cfg.url;C.anon=cfg.anon;}
+}
+function saveSync(){try{localStorage.setItem(SYNC_KEY,JSON.stringify({url:C.url,anon:C.anon,meta:C.meta,last:C.last,cur:C.cur,lastSyncAt:C.lastSyncAt}));}catch(e){}}
+function snapshot(){const m={settings:S.settings,exercises:S.exercises,routines:S.routines};Object.keys(S.workouts).forEach(k=>{m['w:'+k]=S.workouts[k];});return m;}
+function markLocalChanges(){
+  const snap=snapshot(),now=new Date().toISOString();let changed=false;
+  for(const k in snap){const h=hash(snap[k]);if(C.cur[k]!==h){C.cur[k]=h;C.meta[k]=now;changed=true;}}
+  for(const k in C.cur){if(!(k in snap)){delete C.cur[k];C.meta[k]=now;changed=true;}}
+  if(changed){saveSync();clearTimeout(pushT);pushT=setTimeout(()=>sync(),2000);}
+}
+function applyRemote(key,value){
+  if(key==='settings')S.settings=Object.assign({},DEFAULTS,value&&typeof value==='object'?value:{});
+  else if(key==='exercises'){if(!Array.isArray(value))return false;S.exercises=value;}
+  else if(key==='routines')S.routines=Array.isArray(value)?value:[];
+  else if(key.startsWith('w:')){const d=key.slice(2);if(value==null)delete S.workouts[d];else S.workouts[d]=value;}
+  else return false;
+  return true;
+}
+function setStatus(st,err){const prev=C.status;C.status=st;C.error=err||'';
+  if(st==='error'&&prev!=='error')toast('동기화 실패: '+(err||'네트워크를 확인하세요'));
+  if(V.tab==='settings')render();else renderTabbar();}
+async function initClient(){
+  sb=null;syncUser=null;
+  if(!C.url||!C.anon){C.status='off';return;}
+  if(!window.supabase){setStatus('nolib');return;}
+  try{
+    sb=window.supabase.createClient(C.url,C.anon,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'liftlog.auth'}});
+    const {data}=await sb.auth.getSession();syncUser=data&&data.session?data.session.user:null;
+    sb.auth.onAuthStateChange((ev,sess)=>{const u=sess?sess.user:null;const was=!!syncUser;syncUser=u;if(u&&!was)sync();else if(V.tab==='settings')render();});
+    C.status=syncUser?'idle':'signedout';if(V.tab==='settings')render();
+    if(syncUser)sync();
+  }catch(e){setStatus('error',e.message||String(e));}
+}
+async function sync(){
+  if(!sb||!syncUser||syncing)return;syncing=true;lastSyncTick=Date.now();setStatus('syncing');
+  try{
+    const {data:rows,error}=await sb.from('liftlog_kv').select('key,value,deleted,updated_at').eq('user_id',syncUser.id);
+    if(error)throw error;
+    let applied=false;
+    (rows||[]).forEach(r=>{
+      const rt=Date.parse(r.updated_at),lt=C.meta[r.key]?Date.parse(C.meta[r.key]):0;const h=r.deleted?null:hash(r.value);
+      if(rt>lt){if(applyRemote(r.key,r.deleted?undefined:r.value))applied=true;C.meta[r.key]=new Date(rt).toISOString();if(r.deleted){delete C.cur[r.key];delete C.last[r.key];}else{C.cur[r.key]=h;C.last[r.key]=h;}}
+      else if(rt===lt){if(r.deleted)delete C.last[r.key];else C.last[r.key]=h;}
+    });
+    if(applied){normalize();persist();render();}
+    const snap=snapshot(),up=[],now=new Date().toISOString();
+    for(const k in snap){if(C.last[k]!==hash(snap[k]))up.push({user_id:syncUser.id,key:k,value:snap[k],deleted:false,updated_at:C.meta[k]||now});}
+    for(const k in C.last){if(!(k in snap))up.push({user_id:syncUser.id,key:k,value:null,deleted:true,updated_at:C.meta[k]||now});}
+    if(up.length){const {error:e2}=await sb.from('liftlog_kv').upsert(up,{onConflict:'user_id,key'});if(e2)throw e2;
+      up.forEach(r=>{if(r.deleted)delete C.last[r.key];else C.last[r.key]=hash(r.value);if(!C.meta[r.key])C.meta[r.key]=r.updated_at;});}
+    C.lastSyncAt=new Date().toISOString();saveSync();setStatus('ok');
+  }catch(e){setStatus('error',e.message||String(e));}
+  finally{syncing=false;}
+}
+function fmtSync(ts){const d=new Date(ts);const k=dkey(d);return (k===todayKey()?'':fmtShort(k)+' ')+pad(d.getHours())+':'+pad(d.getMinutes());}
+function renderSyncCard(){
+  const st={off:'설정 안 됨',nolib:'모듈 로드 실패',signedout:'로그인 필요',idle:'대기 중',syncing:'동기화 중…',ok:'동기화됨',error:'오류'}[C.status]||C.status;
+  let h=`<div class="card"><div class="field"><label>클라우드 동기화 · Supabase</label></div>`;
+  if(C.status==='nolib')return h+`<p class="muted" style="margin:0;font-size:13px;line-height:1.5">동기화 모듈을 불러오지 못했어요. 인터넷에 연결된 상태에서 앱을 다시 열어주세요.</p></div>`;
+  if(!C.url||!C.anon){
+    h+=`<p class="muted" style="margin:0 0 10px;font-size:13px;line-height:1.5">Supabase 프로젝트의 URL과 anon key를 넣으면 기록이 서버에 저장되고, 다른 기기에서도 같은 계정으로 이어집니다. 저장소의 <b>supabase.json</b>에 넣어 빌드하면 이 입력을 건너뛸 수 있어요.</p>
+      <div class="field"><label>Project URL</label><input type="text" id="sb-url" placeholder="https://xxxx.supabase.co" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      <div class="field" style="margin-top:8px"><label>anon public key</label><input type="text" id="sb-anon" placeholder="eyJhbGciOi…" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      <div style="margin-top:10px"><button class="btn sm primary block" data-act="sync-connect">연결</button></div>`;
+  }else if(!syncUser){
+    h+=`<div class="set-row"><div><div class="t">${esc(C.url.replace(/^https?:\/\//,''))}</div><div class="d">${C.status==='error'?'오류: '+esc(C.error):'연결됨 · 로그인하면 동기화가 시작돼요'}</div></div>${window.LIFTLOG_SUPABASE&&window.LIFTLOG_SUPABASE.url===C.url?'':'<button class="btn sm" data-act="sync-disconnect">해제</button>'}</div>
+      <div class="field" style="margin-top:10px"><label>이메일</label><input type="email" id="sb-email" autocomplete="username" inputmode="email" autocapitalize="none"></div>
+      <div class="field" style="margin-top:8px"><label>비밀번호</label><input type="password" id="sb-pw" autocomplete="current-password"></div>
+      <div class="row" style="margin-top:10px"><button class="btn sm primary grow" data-act="sync-login">로그인</button><button class="btn sm grow" data-act="sync-signup">회원가입</button></div>
+      <p class="muted" style="margin:10px 0 0;font-size:12px;line-height:1.5">처음 로그인하면 서버 기록이 우선 적용되고, 이 기기에만 있던 기록은 서버로 올라갑니다.</p>`;
+  }else{
+    h+=`<div class="set-row"><div><div class="t">${esc(syncUser.email||'')}</div><div class="d">${st}${C.lastSyncAt?' · 마지막 '+fmtSync(C.lastSyncAt):''}${C.status==='error'&&C.error?'<br>'+esc(C.error):''}</div></div><button class="btn sm" data-act="sync-now" ${C.status==='syncing'?'disabled':''}>지금 동기화</button></div>
+      <div style="margin-top:10px"><button class="btn sm block" data-act="sync-logout">로그아웃</button></div>`;
+  }
+  return h+'</div>';
+}
+async function syncAuth(kind){
+  const email=($('#sb-email').value||'').trim(),pw=$('#sb-pw').value||'';
+  if(!email||!pw){toast('이메일과 비밀번호를 입력하세요');return;}
+  if(pw.length<6){toast('비밀번호는 6자 이상이어야 해요');return;}
+  try{
+    if(kind==='login'){const {error}=await sb.auth.signInWithPassword({email,password:pw});if(error)throw error;toast('로그인했어요');}
+    else{const {data,error}=await sb.auth.signUp({email,password:pw});if(error)throw error;
+      if(!data.session)toast('확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인하세요');else toast('가입했어요');}
+  }catch(e){toast((e.message||'실패').replace('Invalid login credentials','이메일 또는 비밀번호가 틀렸어요'));}
+}
+
 /* ===================== events ===================== */
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act],[data-done],[data-tab]');if(!b)return;
@@ -786,7 +889,14 @@ document.addEventListener('click',e=>{
     case 'export':exportBox();break;
     case 'import':importBox();break;
     case 'sample-del':confirmBox('샘플 데이터 삭제','샘플로 표시된 기록과 "(샘플)" 루틴을 지울까요?','삭제',()=>{Object.keys(S.workouts).forEach(k=>{if(S.workouts[k].sample)delete S.workouts[k];});S.routines=S.routines.filter(r=>!/\(샘플\)$/.test(r.name));save();render();},true);break;
-    case 'wipe':confirmBox('모든 기록 삭제','운동 기록, 루틴, 사용자 운동이 모두 지워져요. 되돌릴 수 없어요.','전체 삭제',()=>{try{localStorage.removeItem(KEY);}catch(e){}S=null;load();stopTimer();V.tab='today';render();toast('모두 지웠어요');},true);break;
+    case 'wipe':confirmBox('모든 기록 삭제','운동 기록, 루틴, 사용자 운동이 모두 지워져요. 되돌릴 수 없어요.','전체 삭제',()=>{try{localStorage.removeItem(KEY);}catch(e){}S=null;load();persist();markLocalChanges();stopTimer();V.tab='today';render();toast('모두 지웠어요');},true);break;
+    /* sync */
+    case 'sync-connect':{const u=($('#sb-url').value||'').trim().replace(/\/+$/,''),a=($('#sb-anon').value||'').trim();if(!/^https:\/\/.+/.test(u)||a.length<20){toast('URL과 anon key를 확인하세요');break;}C.url=u;C.anon=a;C.last={};saveSync();initClient();render();}break;
+    case 'sync-disconnect':confirmBox('연결 해제','서버 연결 정보를 지울까요? 이 기기의 기록은 그대로 남아요.','해제',async()=>{try{if(sb)await sb.auth.signOut();}catch(e){}C.url='';C.anon='';C.last={};sb=null;syncUser=null;C.status='off';saveSync();render();});break;
+    case 'sync-login':syncAuth('login');break;
+    case 'sync-signup':syncAuth('signup');break;
+    case 'sync-now':sync();break;
+    case 'sync-logout':confirmBox('로그아웃','로그아웃해도 이 기기의 기록은 남아요. 다시 로그인하면 서버와 다시 맞춰집니다.','로그아웃',async()=>{try{await sb.auth.signOut();}catch(e){}syncUser=null;C.last={};C.status='signedout';saveSync();render();});break;
     case 'modal-bg':if(e.target===b)closeModal();break;
     case 'modal-close':closeModal();break;
   }
@@ -803,11 +913,15 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{if(e.target.dataset.act==='stat-ex'){V.statEx=e.target.value;render();}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('.sets input')){e.preventDefault();const inputs=[...document.querySelectorAll('.sets input')];const i=inputs.indexOf(e.target);if(i>=0&&i<inputs.length-1)inputs[i+1].focus();else e.target.blur();}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();if(Date.now()-lastSyncTick>30000)sync();}});
+window.addEventListener('online',()=>sync());
 
 /* ===================== boot ===================== */
 load();
+loadSync();
 render();
+initClient();
+window.__liftlog={get S(){return S;},set S(v){S=v;},C,sync,save,persist,load,markLocalChanges,sortedDates,todayKey,KEY};
 try{if(window.claude&&window.claude.hot&&window.claude.hot.snapshot)window.claude.hot.snapshot(()=>({tab:V.tab,date:V.date}));}catch(e){}
 })();
 </script>

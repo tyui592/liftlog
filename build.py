@@ -26,7 +26,7 @@ head = """<!doctype html>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
-<style>
+__SUPABASE_CONFIG__<style>
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 [hidden]{display:none!important}
 </style>
@@ -42,6 +42,17 @@ if ('serviceWorker' in navigator) {
 </body>
 </html>
 """
+# supabase.json 이 있으면 URL/anon key 를 주입 (anon key 는 RLS 전제의 공개 키)
+cfg_path = ROOT / "supabase.json"
+cfg_tag = ""
+if cfg_path.exists():
+    import json
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    if cfg.get("url") and cfg.get("anon"):
+        cfg_tag = "<script>window.LIFTLOG_SUPABASE=" + json.dumps({"url": cfg["url"].rstrip("/"), "anon": cfg["anon"]}) + ";</script>\n"
+        print("supabase config: injected", cfg["url"])
+head = head.replace("__SUPABASE_CONFIG__", cfg_tag)
+
 # <title>…<link> 등 head 요소는 프래그먼트 앞부분에 있으므로 body 시작 전에 분리
 m = re.search(r"(<div id=\"app\">)", frag)
 head_part, body_part = frag[: m.start()], frag[m.start():]
@@ -67,7 +78,7 @@ out = head + head_part + "</head>\n<body>\n" + body_part + tail
 """, encoding="utf-8")
 
 (DIST / "sw.js").write_text("""// 리프트로그 서비스워커: 앱 파일을 캐시해 오프라인(헬스장 지하 등)에서도 열리게 함.
-const CACHE = 'liftlog-v1';
+const CACHE = 'liftlog-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -78,12 +89,14 @@ self.addEventListener('activate', e => {
 // 네트워크 우선, 실패하면 캐시 (새 버전을 배포하면 온라인일 때 바로 반영됨)
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const u = new URL(e.request.url);
+  // 자기 파일 + supabase-js CDN 스크립트만 다룬다. Supabase API 등 다른 요청은 건드리지 않는다.
+  if (u.origin !== location.origin && u.hostname !== 'cdn.jsdelivr.net') return;
   e.respondWith(
     fetch(e.request).then(r => {
-      const copy = r.clone();
-      if (r.ok && new URL(e.request.url).origin === location.origin) caches.open(CACHE).then(c => c.put(e.request, copy));
+      if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
       return r;
-    }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('./index.html')))
+    }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || (e.request.mode === 'navigate' ? caches.match('./index.html') : Response.error())))
   );
 });
 """, encoding="utf-8")
