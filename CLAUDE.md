@@ -12,4 +12,5 @@
 - `supabase.json`은 배포 설정이라 커밋한다. `window.__liftlog`는 테스트용 디버그 핸들.
 - 운동 사진은 `assets/ex/`(WebP) → 빌드 시 `dist/img/`. ID 기반(`img/<exId>.webp`)이라 데이터 모델에는 넣지 않는다. 원본 매핑은 `assets/ex/_source-map.json`.
 - 운동 추가 시트 본문(`.sheet .body`)은 세로 flex라 자식에 `flex:none`이 필수. 빼면 스크롤 가능한 자식이 찌그러진다.
+- 화면을 `innerHTML`로 다시 그릴 때는 스크롤을 보존한다: `render()`는 같은 탭이면 `window.scrollY`, `renderPicker()`/`renderRoutineEditor()`는 `.sheet .body`의 `scrollTop`을 복원. 피커의 선택 토글은 `updatePickerSelection()`으로 행만 갱신한다.
 - 커밋 메시지는 한국어로 짧게.

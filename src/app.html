@@ -391,14 +391,16 @@ const I={
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);}
 
 /* ===================== rendering ===================== */
+let renderedTab=null;
 function render(){
-  const app=$('#app');
+  const app=$('#app');const y=renderedTab===V.tab?window.scrollY:0;
   if(V.tab==='today')app.innerHTML=renderToday();
   else if(V.tab==='routines')app.innerHTML=renderRoutines();
   else if(V.tab==='stats')app.innerHTML=renderStats();
   else app.innerHTML=renderSettings();
   renderTabbar();
   document.body.classList.toggle('has-actionbar',!!app.querySelector('.actionbar'));
+  if(renderedTab===V.tab&&y)window.scrollTo(0,y);renderedTab=V.tab;
   document.querySelectorAll('.memo').forEach(t=>{if(t.value){t.style.height='auto';t.style.height=t.scrollHeight+'px';}});
 }
 function renderTabbar(){
@@ -596,8 +598,16 @@ function renderPicker(){
   h+='</div>';
   if(P.tab==='add'){const n=P.selected.length;
     h+=`<div class="foot"><button class="btn" style="flex:0 0 56px" data-act="custom-new" aria-label="사용자 정의 운동 추가">${I.plus}</button><button class="btn primary" data-act="picker-confirm" ${n?'':'disabled'}>${n?(P.mode==='replace'?'이 운동으로 교체':n+'개 추가'):'운동을 선택해주세요'}</button></div>`;}
+  const prev=$('.sheet .body');const st=prev&&P.renderedTab===P.tab?prev.scrollTop:0;
   $('#overlay').innerHTML=h+'</div>';
-  const q=$('#pq');if(q&&P.focusQ){q.focus();P.focusQ=false;}
+  const body=$('.sheet .body');if(body&&st)body.scrollTop=st;P.renderedTab=P.tab;
+  const q=$('#pq');if(q&&P.focusQ){q.focus();q.setSelectionRange(q.value.length,q.value.length);P.focusQ=false;}
+}
+/* 선택 토글은 전체를 다시 그리지 않고 해당 행과 하단 버튼만 갱신 (스크롤 유지) */
+function updatePickerSelection(){
+  document.querySelectorAll('.item[data-act="picker-sel"]').forEach(el=>{const on=P.selected.includes(el.dataset.id);el.classList.toggle('sel',on);el.querySelector('.cb').innerHTML=on?I.check:'';});
+  const btn=$('[data-act="picker-confirm"]');if(!btn)return;const n=P.selected.length;btn.disabled=!n;
+  btn.textContent=n?(P.mode==='replace'?'이 운동으로 교체':n+'개 추가'):'운동을 선택해주세요';
 }
 function pickerAdd(){
   const lm=lastDoneMap();const q=P.q.trim().toLowerCase();
@@ -641,7 +651,11 @@ function renderRoutineEditor(){
     h+=`</div><div class="set-actions"><button data-act="re-set-del">${I.minus}세트삭제</button><button class="add" data-act="re-set-add">${I.plus}세트추가</button></div></section>`;});
   h+=`<button class="btn block" data-act="re-add">${I.plus} 운동 추가</button></div>`;
   h+=`<div class="foot"><button class="btn primary" data-act="re-save">저장</button></div></div>`;
+  const prev=$('.sheet .body');const st=prev?prev.scrollTop:0;
   $('#overlay').innerHTML=h;
+  const body=$('.sheet .body');if(!body)return;
+  if(RE.scrollTo!=null){const el=document.querySelector(`[data-ri="${RE.scrollTo}"]`);RE.scrollTo=null;if(el)el.scrollIntoView({block:'start'});}
+  else if(st)body.scrollTop=st;
 }
 
 /* ===================== modal ===================== */
@@ -878,13 +892,13 @@ document.addEventListener('click',e=>{
     case 'picker-tab':P.tab=v;renderPicker();break;
     case 'picker-part':P.part=v;P.q='';renderPicker();break;
     case 'picker-sort':P.sort=v;renderPicker();break;
-    case 'picker-sel':{const id=b.dataset.id;if(P.mode==='replace')P.selected=[id];else{const i=P.selected.indexOf(id);if(i>=0)P.selected.splice(i,1);else P.selected.push(id);}renderPicker();}break;
+    case 'picker-sel':{const id=b.dataset.id;if(P.mode==='replace')P.selected=[id];else{const i=P.selected.indexOf(id);if(i>=0)P.selected.splice(i,1);else P.selected.push(id);}updatePickerSelection();}break;
     case 'ex-info':exInfoBox(exById(b.dataset.id));break;
     case 'bookmark':{e.stopPropagation();const ex=exById(b.dataset.id);ex.bookmark=!ex.bookmark;save();renderPicker();}break;
     case 'picker-confirm':{
       if(P.mode==='day'){const n=P.selected.length;addExercises(V.date,P.selected);closePicker();render();toast(n+'개 운동을 추가했어요');}
       else if(P.mode==='replace'){const id=P.selected[0];const tgt=w.items.find(x=>x.id===P.replaceId);if(tgt){const lr=lastRecord(id,V.date);tgt.exId=id;tgt.sets=lr?lr.sets:blankSets(tgt.sets.length);tgt.restSec=lr?lr.restSec:null;save();}closePicker();render();}
-      else if(P.mode==='routine'){P.selected.forEach(id=>{const lr=lastRecord(id);RE.items.push({exId:id,sets:lr?lr.sets.map(s=>({kg:s.kg,reps:s.reps})):[{kg:'',reps:''},{kg:'',reps:''},{kg:'',reps:''}]});});P=null;renderRoutineEditor();}
+      else if(P.mode==='routine'){const first=RE.items.length;P.selected.forEach(id=>{const lr=lastRecord(id);RE.items.push({exId:id,sets:lr?lr.sets.map(s=>({kg:s.kg,reps:s.reps})):[{kg:'',reps:''},{kg:'',reps:''},{kg:'',reps:''}]});});P=null;$('#overlay').innerHTML='';RE.scrollTo=first;renderRoutineEditor();}
     }break;
     case 'picker-routine':{const r=S.routines.find(x=>x.id===b.dataset.id);loadRoutine(V.date,r);closePicker();render();toast('"'+r.name+'" 루틴을 불러왔어요');}break;
     case 'picker-expand':P.expanded=P.expanded===v?null:v;renderPicker();break;
@@ -937,7 +951,7 @@ document.addEventListener('input',e=>{
     if(t.dataset.kg!=null)it.sets[j].kg=val;else it.sets[j].reps=val;save();refreshVolumes();return;}
   if(t.dataset.memo){const w=S.workouts[V.date];const it=w&&w.items.find(x=>x.id===t.dataset.memo);if(it){it.memo=t.value;save();}t.style.height='auto';t.style.height=t.scrollHeight+'px';return;}
   if(t.dataset.rkg!=null||t.dataset.rreps!=null){const i=+t.closest('[data-ri]').dataset.ri,j=+(t.dataset.rkg!=null?t.dataset.rkg:t.dataset.rreps);const val=t.value.replace(/[^0-9.]/g,'');if(t.dataset.rkg!=null)RE.items[i].sets[j].kg=val;else RE.items[i].sets[j].reps=val;return;}
-  if(t.dataset.act==='picker-q'){P.q=t.value;P.focusQ=true;const list=$('.sheet .body');const st=list.scrollTop;renderPicker();const q=$('#pq');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length);}const l2=$('.sheet .body');if(l2)l2.scrollTop=st;return;}
+  if(t.dataset.act==='picker-q'){P.q=t.value;P.focusQ=true;renderPicker();return;}
   if(t.dataset.act==='re-name'){RE.name=t.value;return;}
 });
 document.addEventListener('change',e=>{if(e.target.dataset.act==='stat-ex'){V.statEx=e.target.value;render();}});
