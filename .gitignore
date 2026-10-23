@@ -1,0 +1,5 @@
+__pycache__/
+.DS_Store
+_to_delete/
+# dist/ 는 GitHub Actions가 빌드한다. 방법 B(브랜치 폴더 배포)를 쓰려면 아래 줄을 지울 것.
+dist/
