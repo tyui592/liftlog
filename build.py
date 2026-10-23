@@ -78,7 +78,7 @@ out = head + head_part + "</head>\n<body>\n" + body_part + tail
 """, encoding="utf-8")
 
 (DIST / "sw.js").write_text("""// 리프트로그 서비스워커: 앱 파일을 캐시해 오프라인(헬스장 지하 등)에서도 열리게 함.
-const CACHE = 'liftlog-v3';
+const CACHE = 'liftlog-v4';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

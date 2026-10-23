@@ -28,7 +28,7 @@ gymlog/
 |---|------|------|
 | 1 | 운동 라이브러리 (부위별 58개 기본 운동, 초성/한글 검색, 북마크, 최근 운동순 정렬) | 운동 추가 → 직접 추가 |
 | 2 | 사용자 정의 운동 추가/삭제 (무게×횟수 / 횟수만(맨몸) / 시간(분) 선택) | 직접 추가의 `+` / 설정 |
-| 3 | 세트 추가/삭제, 웜업 세트(`W`) 토글(세트 번호 탭), 세트별 완료 체크 | 오늘 |
+| 3 | 세트 추가/삭제, 세트별 완료 체크, 세트 옵션 시트(세트 번호 탭): 세트 타입(일반/`W`웜업/`D`드롭/`F`실패), RPE, 운동 강도(세트·종목 추정 1RM 대비 %), 바벨 원판 계산 | 오늘 / 루틴 편집 |
 | 4 | 완료된 본세트 기준 종목 볼륨 / 전체 볼륨 자동 계산 | 오늘 |
 | 5 | 날짜별 저장, 주간 스트립 + 월간 캘린더 모달(날짜 제목 탭), `오늘로` 빠른 복귀 | 오늘 |
 | 6 | 루틴 만들기/편집/복제/삭제, 오늘 운동을 루틴으로 저장 | 루틴 / 오늘 ⋮ 메뉴 |
@@ -40,8 +40,10 @@ gymlog/
 | 12 | JSON 내보내기/가져오기 | 설정 |
 | 13 | Supabase 클라우드 동기화 (오프라인 우선, 키 단위 last-write-wins, 초기 로그인 시 로컬 커스텀 항목 병합) | 설정 |
 | 14 | 운동 사진: 목록·카드 썸네일, 탭하면 시작/끝 자세 보기 (기본 운동 57개, 오프라인 캐시 지원) | 운동 추가 / 오늘 |
+| 15 | 세트 입력 키패드: 시스템 키보드 대신 앱 키패드(±2.5/±5kg, ±1/±5회, 위 세트 값 복사, 이전/다음, 휴식 타이머 표시). 설정에서 끄면 기기 키보드 사용 | 오늘 / 루틴 편집 |
+| 16 | 종목별 `지난 기록 불러오기` 버튼 (루틴 값으로 채워진 세트를 마지막 기록으로 교체) | 오늘 |
 
-유산소·플랭크 같은 시간 기준 운동은 `분` / `강도·거리` 열로 기록되고 볼륨 계산에서 제외된다. 웜업 세트(`W`)는 기록으로 남지만 본세트 볼륨 및 1RM·PR 통계에서는 제외된다.
+유산소·플랭크 같은 시간 기준 운동은 `분` / `강도·거리` 열로 기록되고 볼륨 계산에서 제외된다. 웜업 세트(`W`)는 기록으로 남지만 본세트 볼륨 및 1RM·PR 통계에서는 제외된다. 드롭(`D`)·실패(`F`) 세트는 표시만 다르고 본세트로 계산된다.
 
 ## 운동 사진
 
@@ -54,15 +56,16 @@ gymlog/
   "version": 1,
   "exercises": [{ "id": "ex019", "part": "등", "name": "랫풀다운", "mode": "weight|reps|time", "custom": false, "bookmark": true }],
   "routines":  [{ "id": "...", "name": "등·이두", "createdAt": 0, "lastUsed": "2026-10-22",
-                  "items": [{ "exId": "ex019", "sets": [{ "kg": 45, "reps": 10, "warm": false }] }] }],
+                  "items": [{ "exId": "ex019", "sets": [{ "kg": 45, "reps": 10, "warm": false, "type": "" }] }] }],
   "workouts":  { "2026-10-23": { "date": "2026-10-23", "startedAt": 0, "finishedAt": null,
                   "items": [{ "id": "...", "exId": "ex019", "restSec": null, "memo": "",
-                              "sets": [{ "kg": "45", "reps": "10", "done": true, "warm": false }] }] } },
-  "settings":  { "restSec": 90, "autoTimer": true, "sound": true, "vibrate": true, "wakeLock": true, "routineFill": "last|routine" }
+                              "sets": [{ "kg": "45", "reps": "10", "done": true, "warm": false, "type": "", "rpe": 8.5 }] }] } },
+  "settings":  { "restSec": 90, "autoTimer": true, "sound": true, "vibrate": true, "wakeLock": true, "routineFill": "last|routine",
+                 "keypad": true, "barKg": 20 }
 }
 ```
 
-`restSec: null` 은 설정의 기본값 사용, `0` 은 OFF. `warm: true` 인 세트는 웜업 세트로 표시된다.
+`restSec: null` 은 설정의 기본값 사용, `0` 은 OFF. 세트 `type` 은 `""`(일반) / `warm` / `drop` / `fail`. `warm` 불리언은 `type === "warm"` 과 항상 같게 유지한다 (예전 데이터·SQL 뷰 `liftlog_sets.warmup` 호환). `rpe` 는 6~10(0.5 단위) 또는 없음. `keypad` 는 앱 키패드 사용 여부, `barKg` 는 원판 계산용 봉 무게.
 
 ## 클라우드 동기화 (Supabase)
 

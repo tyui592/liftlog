@@ -14,3 +14,6 @@
 - 운동 추가 시트 본문(`.sheet .body`)은 세로 flex라 자식에 `flex:none`이 필수. 빼면 스크롤 가능한 자식이 찌그러진다.
 - 화면을 `innerHTML`로 다시 그릴 때는 스크롤을 보존한다: `render()`는 같은 탭이면 `window.scrollY`, `renderPicker()`/`renderRoutineEditor()`는 `.sheet .body`의 `scrollTop`을 복원. 피커의 선택 토글은 `updatePickerSelection()`으로 행만 갱신한다.
 - 커밋 메시지는 한국어로 짧게.
+- 세트 데이터는 `type`('' | warm | drop | fail)이 기준이고 `warm` 불리언은 `normSet()`/`setType()`이 `type==='warm'`과 맞춰 둔다. 세트를 복사할 때는 `copySet()`, 새로 만들 때는 `blankSets()`를 쓴다.
+- 세트 입력칸(`.sets input`)은 `inputmode="none"`(설정 keypad 켜짐)이면 앱 키패드(`#keypad`, `keypad` 절)가 뜬다. 키패드는 `pointerdown`/`mousedown`을 `preventDefault`해 입력칸 포커스를 유지하고, 값은 `input` 이벤트를 다시 쏴서 바꾼다. 키패드가 열리면 `body.has-keypad`로 액션바·탭바·타이머를 숨기고 본문 하단 여백을 늘린다.
+- 운동 카드 헤더(`.ex-head`)는 한 줄: 번호 · 썸네일 · `부위 | 이름` · 아이콘 버튼 최대 2개. 루틴 편집의 순서 변경·삭제는 ⋮ 메뉴(`re-menu`)로 둔다 (버튼 3개를 나란히 두면 제목이 줄바꿈된다).
