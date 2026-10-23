@@ -37,7 +37,8 @@ select
   (s.ord)::int                                          as set_no,
   nullif(s.val ->> 'kg', '')::numeric                   as kg,
   nullif(s.val ->> 'reps', '')::numeric                 as reps,
-  (s.val ->> 'done')::boolean                           as done
+  (s.val ->> 'done')::boolean                           as done,
+  coalesce((s.val ->> 'warm')::boolean, false)          as warmup
 from public.liftlog_kv k
 cross join lateral jsonb_array_elements(k.value -> 'items') as it
 cross join lateral jsonb_array_elements(it -> 'sets') with ordinality as s(val, ord)
