@@ -78,7 +78,7 @@ out = head + head_part + "</head>\n<body>\n" + body_part + tail
 """, encoding="utf-8")
 
 (DIST / "sw.js").write_text("""// 리프트로그 서비스워커: 앱 파일을 캐시해 오프라인(헬스장 지하 등)에서도 열리게 함.
-const CACHE = 'liftlog-v2';
+const CACHE = 'liftlog-v3';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -86,14 +86,32 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-// 네트워크 우선, 실패하면 캐시 (새 버전을 배포하면 온라인일 때 바로 반영됨)
+function fetchWithTimeout(req, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout')), ms);
+    fetch(req).then(r => { clearTimeout(t); resolve(r); }, err => { clearTimeout(t); reject(err); });
+  });
+}
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const u = new URL(e.request.url);
+  const isImg = u.origin === location.origin && u.pathname.includes('/img/');
+  const isFont = u.hostname === 'fonts.googleapis.com' || u.hostname === 'fonts.gstatic.com';
+  // 정적 운동 이미지와 폰트는 캐시 우선 (오프라인에서도 사진·폰트 유지)
+  if (isImg || isFont) {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(r => {
+        if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+        return r;
+      }).catch(() => Response.error()))
+    );
+    return;
+  }
   // 자기 파일 + supabase-js CDN 스크립트만 다룬다. Supabase API 등 다른 요청은 건드리지 않는다.
   if (u.origin !== location.origin && u.hostname !== 'cdn.jsdelivr.net') return;
+  // 네트워크 우선(지하 헬스장 Lie-Fi 대비 3초 타임아웃), 실패·지연 시 즉시 캐시 반환
   e.respondWith(
-    fetch(e.request).then(r => {
+    fetchWithTimeout(e.request, 3000).then(r => {
       if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
       return r;
     }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || (e.request.mode === 'navigate' ? caches.match('./index.html') : Response.error())))
