@@ -486,6 +486,7 @@ const I={
   search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
   down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
   swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
   info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
@@ -719,7 +720,7 @@ function renderSettings(){
   h+=`<div class="card"><div class="field"><label>루틴</label></div>
     <div class="set-row"><div><div class="t">루틴 불러올 때 무게·횟수</div><div class="d">마지막 기록이 있으면 그 값으로 채울지</div></div><span class="seg"><button data-act="set-fill" data-v="last" class="${s.routineFill==='last'?'on':''}">마지막 기록</button><button data-act="set-fill" data-v="routine" class="${s.routineFill==='routine'?'on':''}">루틴 값</button></span></div></div>`;
   h+=`<div class="card"><div class="field"><label>사용자 정의 운동 · ${customs.length}개</label></div>
-    ${customs.map(e=>`<div class="set-row"><div><div class="t"><span class="muted">${esc(e.part)}</span> ${esc(e.name)}</div><div class="d">${e.mode==='time'?'시간 기준':e.mode==='reps'?'횟수(맨몸) 기준':'무게 × 횟수'}</div></div><button class="btn sm danger" data-act="custom-del" data-id="${e.id}">삭제</button></div>`).join('')}
+    ${customs.map(e=>`<div class="set-row"><div><div class="t"><span class="muted">${esc(e.part)}</span> ${esc(e.name)}</div><div class="d">${e.mode==='time'?'시간 기준':e.mode==='reps'?'횟수(맨몸) 기준':'무게 × 횟수'}</div></div><div style="display:flex;gap:6px"><button class="btn sm" data-act="custom-edit" data-id="${e.id}">수정</button><button class="btn sm danger" data-act="custom-del" data-id="${e.id}">삭제</button></div></div>`).join('')}
     <div style="margin-top:10px"><button class="btn sm block" data-act="custom-new">${I.plus} 운동 추가</button></div></div>`;
   h+=renderSyncCard();
   h+=`<div class="card"><div class="field"><label>데이터</label></div>
@@ -841,11 +842,13 @@ function modal(html){$('#modal').innerHTML=`<div class="modal-bg" data-act="moda
 function closeModal(){$('#modal').innerHTML='';syncHistory();}
 function confirmBox(title,desc,okLabel,onOk,danger){
   modal(`<h3>${title}</h3>${desc?`<p>${desc}</p>`:''}<div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn ${danger?'danger':'primary'}" id="m-ok">${okLabel}</button></div>`);
-  $('#m-ok').onclick=()=>{closeModal();onOk();};
+  $('#m-ok').onclick=()=>{$('#modal').innerHTML='';onOk();syncHistory();};
 }
 function menuBox(title,items){
   modal(`<h3>${title}</h3><div class="menu">${items.map((it,i)=>`<button data-mi="${i}" class="${it.danger?'danger':''}">${it.icon||''}${it.label}</button>`).join('')}</div>`);
-  document.querySelectorAll('[data-mi]').forEach(b=>{b.onclick=()=>{closeModal();items[+b.dataset.mi].fn();};});
+  document.querySelectorAll('[data-mi]').forEach(b=>{b.onclick=()=>{
+    // 히스토리를 건드리지 않고 비운 뒤 실행 → 다음 동작이 모달을 열면 history.back()의 popstate가 새 모달을 닫아버리는 문제 방지
+    $('#modal').innerHTML='';items[+b.dataset.mi].fn();syncHistory();};});
 }
 function calendarBox(anchorKey){
   const d=parse(anchorKey||V.date),y=d.getFullYear(),m=d.getMonth();
@@ -910,14 +913,21 @@ function exInfoBox(ex){
     <p class="muted" style="font-size:11px">사진: free-exercise-db (퍼블릭 도메인)</p>
     <button class="btn block" data-act="modal-close">닫기</button>`);
 }
-function customExBox(){
-  modal(`<h3>사용자 정의 운동</h3><div class="field"><label>이름</label><input type="text" id="cx-name" placeholder="예: 스미스 머신 스쿼트" maxlength="40"></div>
-    <div class="field"><label>부위</label><select id="cx-part">${PARTS.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div>
-    <div class="field"><label>기록 방식</label><select id="cx-mode"><option value="weight">무게 × 횟수</option><option value="reps">횟수(맨몸) 기준</option><option value="time">시간(분) 기준</option></select></div>
-    <div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" id="cx-ok">추가</button></div>`);
-  setTimeout(()=>$('#cx-name').focus(),50);
+function customExBox(edit){
+  // edit: 기존 사용자 정의 운동 객체를 주면 수정 모드 (같은 ID 유지 → 기존 기록·루틴에 바로 반영)
+  const sel=(v,cur)=>v===cur?' selected':'';const mode=edit?edit.mode||'weight':'weight';
+  modal(`<h3>${edit?'운동 정보 수정':'사용자 정의 운동'}</h3><div class="field"><label>이름</label><input type="text" id="cx-name" placeholder="예: 스미스 머신 스쿼트" maxlength="40" value="${edit?esc(edit.name):''}"></div>
+    <div class="field"><label>부위</label><select id="cx-part">${PARTS.map(p=>`<option value="${p}"${sel(p,edit&&edit.part)}>${p}</option>`).join('')}</select></div>
+    <div class="field"><label>기록 방식</label><select id="cx-mode"><option value="weight"${sel('weight',mode)}>무게 × 횟수</option><option value="reps"${sel('reps',mode)}>횟수(맨몸) 기준</option><option value="time"${sel('time',mode)}>시간(분) 기준</option></select></div>
+    ${edit?'<p class="muted" style="font-size:12px">기록 방식을 바꾸면 이미 적은 숫자는 그대로 두고 칸 이름만 바뀌어요 (kg↔분, 회↔강도/거리).</p>':''}
+    <div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" id="cx-ok">${edit?'저장':'추가'}</button></div>`);
+  setTimeout(()=>{const x=$('#cx-name');if(x)x.focus();},50);
   $('#cx-ok').onclick=()=>{const name=$('#cx-name').value.trim();if(!name){toast('이름을 입력하세요');return;}
-    const e={id:'cx'+uid(),name,part:$('#cx-part').value,mode:$('#cx-mode').value,custom:true,bookmark:true};S.exercises.push(e);save();closeModal();
+    const part=$('#cx-part').value,md=$('#cx-mode').value;
+    if(edit){Object.assign(edit,{name,part,mode:md});save();closeModal();if(P)renderPicker();else render();toast('운동 정보를 바꿨어요');return;}
+    const dup=S.exercises.find(x=>x.custom&&x.name===name);
+    if(dup){confirmBox('같은 이름의 운동','"'+esc(name)+'"이(가) 이미 있어요. 새로 만들지 않고 기존 운동의 부위·기록 방식을 바꿀까요? 기존 기록에도 바로 반영돼요.','기존 운동 수정',()=>{Object.assign(dup,{part,mode:md});save();if(P)renderPicker();else render();toast('운동 정보를 바꿨어요');});return;}
+    const e={id:'cx'+uid(),name,part,mode:md,custom:true,bookmark:true};S.exercises.push(e);save();closeModal();
     if(P){P.selected.push(e.id);P.q='';P.part='북마크';renderPicker();}else render();toast('운동을 추가했어요');};
 }
 function saveRoutineBox(w){
@@ -1207,6 +1217,7 @@ document.addEventListener('click',e=>{
       {label:'위로 이동',icon:I.up,fn:()=>{if(i>0){w.items.splice(i,1);w.items.splice(i-1,0,it);save();render();}}},
       {label:'아래로 이동',icon:I.down,fn:()=>{if(i<w.items.length-1){w.items.splice(i,1);w.items.splice(i+1,0,it);save();render();}}},
       {label:'다른 운동으로 교체',icon:I.swap,fn:()=>openPicker('replace',{replaceId:it.id})},
+      ...(exById(it.exId).custom?[{label:'운동 정보 수정 (부위·기록 방식)',icon:I.edit,fn:()=>customExBox(exById(it.exId))}]:[]),
       {label:'운동 삭제',icon:I.trash,danger:true,fn:()=>{w.items.splice(i,1);save();render();}}]);}break;
     case 'rest':if(it)restBox(it);break;
     case 'item-load-last':if(it){const lr=lastRecord(it.exId,V.date);if(!lr){toast('지난 기록이 없어요');break;}
@@ -1234,6 +1245,7 @@ document.addEventListener('click',e=>{
     case 'picker-expand':P.expanded=P.expanded===v?null:v;renderPicker();break;
     case 'picker-past':loadDay(V.date,S.workouts[v]);closePicker();render();toast(fmtDay(v)+' 운동을 불러왔어요');break;
     case 'custom-new':customExBox();break;
+    case 'custom-edit':{const ex=S.exercises.find(x=>x.id===b.dataset.id);if(ex)customExBox(ex);}break;
     /* routines (events) */
     case 'routine-new':openRoutineEditor(null);break;
     case 'routine-load':{const r=S.routines.find(x=>x.id===b.closest('[data-routine]').dataset.routine);loadRoutine(V.date,r);V.tab='today';render();toast('"'+r.name+'" 루틴을 불러왔어요');}break;
