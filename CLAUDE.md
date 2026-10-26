@@ -17,3 +17,4 @@
 - 세트 데이터는 `type`('' | warm | drop | fail)이 기준이고 `warm` 불리언은 `normSet()`/`setType()`이 `type==='warm'`과 맞춰 둔다. 세트를 복사할 때는 `copySet()`, 새로 만들 때는 `blankSets()`를 쓴다.
 - 세트 입력칸(`.sets input`)은 `inputmode="none"`(설정 keypad 켜짐)이면 앱 키패드(`#keypad`, `keypad` 절)가 뜬다. 키패드는 `pointerdown`/`mousedown`을 `preventDefault`해 입력칸 포커스를 유지하고, 값은 `input` 이벤트를 다시 쏴서 바꾼다. 키패드가 열리면 `body.has-keypad`로 액션바·탭바·타이머를 숨기고 본문 하단 여백을 늘린다.
 - 운동 카드 헤더(`.ex-head`)는 한 줄: 번호 · 썸네일 · `부위 | 이름` · 아이콘 버튼 최대 2개. 루틴 편집의 순서 변경·삭제는 ⋮ 메뉴(`re-menu`)로 둔다 (버튼 3개를 나란히 두면 제목이 줄바꿈된다).
+- 기록 방식은 `MODES`/`modeOf()` 표가 기준(weight: kg·회, reps: 회만, time: 분·강도/거리). 세트 열·키패드·볼륨·PR·추이·요약 글자를 만질 때 `ex.mode`를 직접 비교하지 말고 `modeOf(ex)`와 `MODES[mode]`를 쓴다. reps 모드는 kg 칸을 그리지 않고 데이터의 kg 를 무시한다. `.sets` 그리드는 모드 클래스(`.sets.reps`)로 열 수를 바꾼다.

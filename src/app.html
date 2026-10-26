@@ -271,6 +271,8 @@ body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 .field input[type=text],.field input[type=email],.field input[type=password],.field input[type=number],.field select,.field textarea{height:46px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px;width:100%;font-size:16px}
 .field textarea{height:auto;padding:10px 12px;min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
 .sets.noDone{grid-template-columns:52px 1fr 1fr}
+.sets.reps{grid-template-columns:52px 1fr 64px}
+.sets.noDone.reps{grid-template-columns:52px 1fr}
 
 /* modal */
 .modal-bg{position:fixed;inset:0;z-index:30;background:rgba(10,14,20,.5);display:flex;align-items:flex-end;justify-content:center;padding:0 max(0px,env(safe-area-inset-right,0px)) 0 max(0px,env(safe-area-inset-left,0px))}
@@ -433,10 +435,24 @@ const hasImg=ex=>/^ex\d{3}$/.test(ex.id);
 function thumb(ex,cls){const c='thumb '+(cls||'')+(hasImg(ex)?' tap':'');
   return hasImg(ex)?`<span class="${c}" data-act="ex-info" data-id="${ex.id}"><img src="img/${ex.id}.webp" alt="" loading="lazy" onerror="this.parentNode.textContent='${esc(ex.part)}'"></span>`:`<span class="${c}">${esc(ex.part)}</span>`;}
 const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
-function setVolume(ex,s){return (!s.done||s.warm||ex.mode==='time')?0:num(s.kg)*num(s.reps);}
+/* 기록 방식(ex.mode) 기준 — 모든 화면·계산은 이 표를 따른다.
+   weight: kg × 회. 볼륨 = kg×회, 1RM·강도·원판·PR(무게) 계산.
+   reps  : 회만 기록(맨몸). kg 칸 없음, 데이터의 kg 는 무시. 볼륨 없음, PR·추이는 횟수 기준. 가중 맨몸운동은 weight 로.
+   time  : 분 + 강도/거리. 세트의 kg 자리에 분, reps 자리에 강도/거리. 볼륨·1RM·PR·추이 없음. */
+const MODES={weight:{label:'무게 × 횟수',cols:['kg','회'],ph:['kg','회'],col:['kg','reps']},reps:{label:'횟수(맨몸) 기준',cols:['회'],ph:['회'],col:['reps']},time:{label:'시간(분) 기준',cols:['분','강도/거리'],ph:['분','km·레벨'],col:['min','dist']}};
+const modeOf=ex=>MODES[ex.mode]?ex.mode:'weight';
+const hasWeightItem=w=>w.items.some(it=>modeOf(exById(it.exId))==='weight');
+function setVolume(ex,s){return (!s.done||s.warm||modeOf(ex)!=='weight')?0:num(s.kg)*num(s.reps);}
 function itemVolume(it){const ex=exById(it.exId);return it.sets.reduce((a,s)=>a+setVolume(ex,s),0);}
 function dayVolume(w){return w.items.reduce((a,it)=>a+itemVolume(it),0);}
 function fmtKg(v){return Math.round(v).toLocaleString('ko-KR')+'kg';}
+/* 하루 요약에 붙일 볼륨 글자. 무게 운동이 하루도 없으면 빈 문자열(0kg 를 보여주지 않는다) */
+function dayVolText(w){return hasWeightItem(w)?fmtKg(dayVolume(w)):'';}
+/* 운동 카드 메타의 종목 지표: weight 는 볼륨, reps 는 완료한 본세트 총 횟수, time 은 없음 */
+function itemMetric(it){const ex=exById(it.exId),m=modeOf(ex);
+  if(m==='weight')return {label:'종목 볼륨',value:fmtKg(itemVolume(it))};
+  if(m==='reps')return {label:'완료 횟수',value:it.sets.reduce((a,s)=>a+(s.done&&!s.warm?num(s.reps):0),0)+'회'};
+  return null;}
 function partsOf(w){const seen=[];w.items.forEach(it=>{const p=exById(it.exId).part;if(!seen.includes(p))seen.push(p);});return seen;}
 function sortedDates(){return Object.keys(S.workouts).filter(k=>S.workouts[k].items.length).sort();}
 function restOf(it){return it.restSec==null?S.settings.restSec:it.restSec;}
@@ -459,10 +475,10 @@ function bestE1rm(exId,beforeKey){const s=sessionsOf(exId,beforeKey);return s.le
 const PLATES=[25,20,15,10,5,2.5,1.25];
 function platesFor(total,bar){let side=(num(total)-bar)/2;if(side<0)return {plates:[],rem:0,under:true};const out=[];for(const p of PLATES){while(side>=p-1e-9){out.push(p);side-=p;}}return {plates:out,rem:Math.round(side*100)/100,under:false};}
 function isItemPR(it,dateKey){
-  if(exById(it.exId).mode==='time')return false;
+  const mode=modeOf(exById(it.exId));if(mode==='time')return false;
   const prev=sessionsOf(it.exId,dateKey);if(!prev.length)return false;
   const done=it.sets.filter(s=>s.done&&!s.warm&&num(s.reps)>0);if(!done.length)return false;
-  const prevMaxKg=Math.max(...prev.map(s=>s.maxKg));
+  const prevMaxKg=mode==='weight'?Math.max(...prev.map(s=>s.maxKg)):0;
   if(prevMaxKg>0)return Math.max(...done.map(s=>num(s.kg)))>prevMaxKg;
   const prevMaxReps=Math.max(...prev.map(s=>s.maxReps));
   return Math.max(...done.map(s=>num(s.reps)))>prevMaxReps;
@@ -545,13 +561,13 @@ function renderToday(){
   if(!hasItems){
     const last=sortedDates().filter(d=>d<k).pop();
     html+=`<div class="empty">${I.dumbbell}<h2>${k===todayKey()?'오늘 운동을 시작해 볼까요?':fmtDay(k)+' 기록이 없어요'}</h2>
-      ${last?`<p>마지막 운동 ${fmtDay(last)} · ${partsOf(S.workouts[last]).join(' · ')} · ${fmtKg(dayVolume(S.workouts[last]))}</p>`:'<p>운동을 추가하면 세트별 무게와 횟수를 기록할 수 있어요.</p>'}
+      ${last?`<p>${['마지막 운동 '+fmtDay(last),partsOf(S.workouts[last]).join(' · '),dayVolText(S.workouts[last])].filter(Boolean).join(' · ')}</p>`:'<p>운동을 추가하면 세트별 무게와 횟수를 기록할 수 있어요.</p>'}
       <button class="btn primary" data-act="open-picker" style="min-width:220px">운동 추가하기</button>
       ${sortedDates().length?'':'<button class="btn ghost sm" data-act="sample">샘플 데이터로 둘러보기</button>'}
     </div>`;
   }else{
     const total=w.items.reduce((a,it)=>a+it.sets.filter(s=>!s.warm).length,0),done=w.items.reduce((a,it)=>a+it.sets.filter(s=>s.done&&!s.warm).length,0);
-    html+=`<div class="card summary"><div><div class="lbl">완료 볼륨</div><div class="val num" id="dayvol">${fmtKg(dayVolume(w))}</div></div>
+    html+=`<div class="card summary"><div><div class="lbl">완료 볼륨</div><div class="val num" id="dayvol">${dayVolText(w)||'–'}</div></div>
       <div class="sub">${partsOf(w).join(' · ')}<br>본세트 <span class="num" id="daysets">${done}/${total}</span> 완료${w.finishedAt?' · '+fmtTime(w.startedAt)+'–'+fmtTime(w.finishedAt):''}${w.sample?' · <span class="badge">샘플</span>':''}</div></div>`;
     html+=w.items.map((it,i)=>renderItem(it,i)).join('');
     html+=`<div style="height:64px"></div></div>
@@ -575,23 +591,27 @@ function setCell(s,n,attr,extra){
   return `<button type="button" class="sn ${t} ${extra||''}" ${attr} aria-label="세트 옵션 (${SET_TYPES[t]}${s.rpe!=null?' · RPE '+s.rpe:''})">${lbl}${tag}${rpe}</button>`;
 }
 const inputMode=()=>S.settings.keypad?'none':'decimal';
+/* 세트 입력칸. M=MODES[mode]. reps 모드는 kg 칸을 아예 그리지 않는다(세트 데이터의 kg 는 무시). kgAttr/rpAttr 에 id·data-* 를 넘긴다 */
+function setInputs(M,s,im,kgAttr,rpAttr,j,cls){
+  const inp=(attr,col,ph,val,lbl)=>`<input type="text" inputmode="${im}" enterkeyhint="next" placeholder="${ph}" class="${cls||''}" ${attr} value="${esc(val)}" data-col="${col}" aria-label="${j+1}세트 ${lbl}">`;
+  if(M.col.length===1)return inp(rpAttr,M.col[0],M.ph[0],s.reps,M.cols[0]);
+  return inp(kgAttr,M.col[0],M.ph[0],s.kg,M.cols[0])+inp(rpAttr,M.col[1],M.ph[1],s.reps,M.cols[1]);
+}
 function renderItem(it,i){
-  const ex=exById(it.exId),time=ex.mode==='time',rest=restOf(it),prevRec=lastRecord(it.exId,V.date),im=inputMode();
+  const ex=exById(it.exId),mode=modeOf(ex),M=MODES[mode],rest=restOf(it),prevRec=lastRecord(it.exId,V.date),im=inputMode(),met=itemMetric(it);
   let h=`<section class="card ex" data-item="${it.id}"><div class="ex-head"><span class="ex-idx">${i+1}</span>${thumb(ex,'sm')}
     <div class="grow ex-title"><span class="part">${esc(ex.part)}</span><span>${esc(ex.name)}</span><span class="badge pr" data-pr="${it.id}" ${isItemPR(it,V.date)?'':'hidden'}>PR</span></div>
     ${hasImg(ex)?`<button class="iconbtn" data-act="ex-info" data-id="${ex.id}" aria-label="운동 정보">${I.info}</button>`:''}<button class="iconbtn" data-act="item-menu" aria-label="운동 메뉴">${I.more}</button></div>
-    <div class="ex-meta">${time?'':`<span>종목 볼륨 <b class="num" data-vol="${it.id}">${fmtKg(itemVolume(it))}</b></span><span class="sep"></span>`}
+    <div class="ex-meta">${met?`<span>${met.label} <b class="num" data-vol="${it.id}">${met.value}</b></span><span class="sep"></span>`:''}
     <button data-act="rest" class="${rest>0?'on':''}">${I.timer}<span>${rest>0?rest+'초':'OFF'}</span></button>
     ${prevRec?`<span class="sep"></span><span>지난번 <b class="num">${lastSummary(it.exId,V.date).replace(/^\d+세트 · /,'')}</b> <span class="muted">(${ago(prevRec.date)})</span></span>`:''}</div>
     <textarea class="memo" rows="1" placeholder="메모" data-memo="${it.id}">${esc(it.memo)}</textarea>
     <div class="ex-tools"><button data-act="item-load-last" ${prevRec?'':'disabled'}>${I.reload}지난 기록 불러오기</button></div>
-    <div class="sets"><span class="h">세트</span><span class="h">${time?'분':ex.mode==='reps'?'+kg':'kg'}</span><span class="h">${time?'강도/거리':'회'}</span><span class="h">완료</span>`;
+    <div class="sets ${mode}"><span class="h">세트</span>${M.cols.map(c=>`<span class="h">${c}</span>`).join('')}<span class="h">완료</span>`;
   let wIdx=0;
   it.sets.forEach((s,j)=>{
     const n=s.type==='warm'?0:(++wIdx);
-    h+=setCell(s,n,`data-setopt="${j}"`,s.done?'r-done':'')+`
-      <input type="text" inputmode="${im}" enterkeyhint="next" placeholder="${time?'분':ex.mode==='reps'?'0':'kg'}" class="${s.done?'in-done':''}" id="kg-${it.id}-${j}" value="${esc(s.kg)}" data-kg="${j}" data-col="${time?'min':ex.mode==='reps'?'kg':'kg'}" aria-label="${j+1}세트 ${time?'분':'kg'}">
-      <input type="text" inputmode="${im}" enterkeyhint="next" placeholder="${time?'km·레벨':'회'}" class="${s.done?'in-done':''}" id="rp-${it.id}-${j}" value="${esc(s.reps)}" data-reps="${j}" data-col="${time?'dist':'reps'}" aria-label="${j+1}세트 ${time?'강도':'회'}">
+    h+=setCell(s,n,`data-setopt="${j}"`,s.done?'r-done':'')+setInputs(M,s,im,`id="kg-${it.id}-${j}" data-kg="${j}"`,`id="rp-${it.id}-${j}" data-reps="${j}"`,j,s.done?'in-done':'')+`
       <button class="done ${s.done?'on':''}" data-done="${j}" aria-label="${j+1}세트 완료">${I.check}</button>`;
   });
   h+=`</div><div class="set-actions"><button data-act="set-del">${I.minus}세트삭제</button><button class="add" data-act="set-add">${I.plus}세트추가</button></div></section>`;
@@ -599,9 +619,9 @@ function renderItem(it,i){
 }
 function refreshVolumes(){
   const w=S.workouts[V.date];if(!w)return;
-  const dv=$('#dayvol');if(dv)dv.textContent=fmtKg(dayVolume(w));
+  const dv=$('#dayvol');if(dv)dv.textContent=dayVolText(w)||'–';
   w.items.forEach(it=>{
-    const el=document.querySelector(`[data-vol="${it.id}"]`);if(el)el.textContent=fmtKg(itemVolume(it));
+    const el=document.querySelector(`[data-vol="${it.id}"]`);if(el){const met=itemMetric(it);if(met)el.textContent=met.value;}
     const pr=document.querySelector(`[data-pr="${it.id}"]`);if(pr)pr.hidden=!isItemPR(it,V.date);
   });
   const ds=$('#daysets');if(ds){const total=w.items.reduce((a,it)=>a+it.sets.filter(s=>!s.warm).length,0),done=w.items.reduce((a,it)=>a+it.sets.filter(s=>s.done&&!s.warm).length,0);ds.textContent=done+'/'+total;}
@@ -635,7 +655,7 @@ function renderStats(){
   const last7=dates.filter(d=>daysBetween(d,t)>=0&&daysBetween(d,t)<7).length;
   h+=`<div class="stat-grid"><div class="stat"><div class="l">총 운동일</div><div class="v num">${dates.length}<small>일</small></div></div><div class="stat"><div class="l">이번 달</div><div class="v num">${thisMonth}<small>일</small></div></div><div class="stat"><div class="l">최근 7일</div><div class="v num">${last7}<small>일</small></div></div></div>`;
   // exercise progress
-  const exIds=[];dates.forEach(k=>S.workouts[k].items.forEach(it=>{if(exById(it.exId).mode!=='time'&&it.sets.some(s=>s.done&&!s.warm&&num(s.reps)>0)&&!exIds.includes(it.exId))exIds.push(it.exId);}));
+  const exIds=[];dates.forEach(k=>S.workouts[k].items.forEach(it=>{if(modeOf(exById(it.exId))!=='time'&&it.sets.some(s=>s.done&&!s.warm&&num(s.reps)>0)&&!exIds.includes(it.exId))exIds.push(it.exId);}));
   if(!V.statEx||!exIds.includes(V.statEx)){const lm=lastDoneMap();exIds.sort((a,b)=>(lm[b]||'').localeCompare(lm[a]||''));V.statEx=exIds[0];}
   if(V.statEx){
     const sess=sessionsOf(V.statEx);
@@ -668,14 +688,15 @@ function renderStats(){
   return h+'</div></div>';
 }
 function sessionsOf(exId,beforeKey){
-  const ex=exById(exId),out=[];
+  const ex=exById(exId),mode=modeOf(ex),out=[];if(mode==='time')return out;
   sortedDates().forEach(k=>{if(beforeKey&&k>=beforeKey)return;const it=S.workouts[k].items.find(i=>i.exId===exId);if(!it)return;
-    const sets=it.sets.filter(s=>s.done&&!s.warm&&num(s.reps)>0&&(ex.mode==='reps'||num(s.kg)>0||s.kg==='0'||s.kg===''));if(!sets.length)return;
-    const maxKg=Math.max(...sets.map(s=>num(s.kg)));const maxReps=Math.max(...sets.map(s=>num(s.reps)));const totalReps=sets.reduce((a,s)=>a+num(s.reps),0);
+    const sets=it.sets.filter(s=>s.done&&!s.warm&&num(s.reps)>0);if(!sets.length)return;
+    // reps 모드는 데이터에 kg 가 남아 있어도(예전 기록·방식 변경) 무시한다
+    const maxKg=mode==='weight'?Math.max(...sets.map(s=>num(s.kg))):0;const maxReps=Math.max(...sets.map(s=>num(s.reps)));const totalReps=sets.reduce((a,s)=>a+num(s.reps),0);
     const e=maxKg>0?Math.max(...sets.map(s=>e1rm(num(s.kg),num(s.reps)))):0;
     const top=maxKg>0?sets.find(s=>num(s.kg)===maxKg):sets.find(s=>num(s.reps)===maxReps);
     const summary=maxKg>0?(sets.length+'세트 · 최고 '+maxKg+'kg×'+num(top.reps)):(sets.length+'세트 · 최고 '+maxReps+'회 (총 '+totalReps+'회)');
-    out.push({date:k,maxKg,maxReps,totalReps,e1rm:e,volume:sets.reduce((a,s)=>a+num(s.kg)*num(s.reps),0),summary});});
+    out.push({date:k,maxKg,maxReps,totalReps,e1rm:e,volume:maxKg>0?sets.reduce((a,s)=>a+num(s.kg)*num(s.reps),0):0,summary});});
   return out;
 }
 function lineChart(sess,byReps){
@@ -720,7 +741,7 @@ function renderSettings(){
   h+=`<div class="card"><div class="field"><label>루틴</label></div>
     <div class="set-row"><div><div class="t">루틴 불러올 때 무게·횟수</div><div class="d">마지막 기록이 있으면 그 값으로 채울지</div></div><span class="seg"><button data-act="set-fill" data-v="last" class="${s.routineFill==='last'?'on':''}">마지막 기록</button><button data-act="set-fill" data-v="routine" class="${s.routineFill==='routine'?'on':''}">루틴 값</button></span></div></div>`;
   h+=`<div class="card"><div class="field"><label>사용자 정의 운동 · ${customs.length}개</label></div>
-    ${customs.map(e=>`<div class="set-row"><div><div class="t"><span class="muted">${esc(e.part)}</span> ${esc(e.name)}</div><div class="d">${e.mode==='time'?'시간 기준':e.mode==='reps'?'횟수(맨몸) 기준':'무게 × 횟수'}</div></div><div style="display:flex;gap:6px"><button class="btn sm" data-act="custom-edit" data-id="${e.id}">수정</button><button class="btn sm danger" data-act="custom-del" data-id="${e.id}">삭제</button></div></div>`).join('')}
+    ${customs.map(e=>`<div class="set-row"><div><div class="t"><span class="muted">${esc(e.part)}</span> ${esc(e.name)}</div><div class="d">${MODES[modeOf(e)].label}</div></div><div style="display:flex;gap:6px"><button class="btn sm" data-act="custom-edit" data-id="${e.id}">수정</button><button class="btn sm danger" data-act="custom-del" data-id="${e.id}">삭제</button></div></div>`).join('')}
     <div style="margin-top:10px"><button class="btn sm block" data-act="custom-new">${I.plus} 운동 추가</button></div></div>`;
   h+=renderSyncCard();
   h+=`<div class="card"><div class="field"><label>데이터</label></div>
@@ -783,9 +804,9 @@ function pickerAddList(){
 }
 function lastSummary(exId,beforeKey){
   const lr=lastRecord(exId,beforeKey);if(!lr)return '';const ex=exById(exId);
-  const s=lr.sets.filter(x=>!x.warm&&(x.kg!==''||x.reps!==''));if(!s.length)return '';
-  if(ex.mode==='time'){const top=s.reduce((a,x)=>num(x.kg)>num(a.kg)?x:a,s[0]);return s.length+'세트 · '+num(top.kg)+'분';}
-  const maxKg=Math.max(...s.map(x=>num(x.kg)));
+  const mode=modeOf(ex),s=lr.sets.filter(x=>!x.warm&&(mode==='reps'?x.reps!=='':(x.kg!==''||x.reps!=='')));if(!s.length)return '';
+  if(mode==='time'){const top=s.reduce((a,x)=>num(x.kg)>num(a.kg)?x:a,s[0]);return s.length+'세트 · '+num(top.kg)+'분';}
+  const maxKg=mode==='weight'?Math.max(...s.map(x=>num(x.kg))):0;
   if(maxKg>0){const top=s.find(x=>num(x.kg)===maxKg);return s.length+'세트 · '+maxKg+'kg×'+num(top.reps);}
   const maxReps=Math.max(...s.map(x=>num(x.reps)));return s.length+'세트 · 최고 '+maxReps+'회';
 }
@@ -797,8 +818,8 @@ function pickerPast(){
   const ds=sortedDates().filter(k=>k!==V.date).reverse().slice(0,40);
   if(!ds.length)return `<div class="empty">${I.tabToday}<h2>이전 운동 기록이 없어요</h2><p>기록이 쌓이면 지난 운동을 그대로 불러올 수 있어요.</p></div>`;
   return '<p class="muted" style="margin:4px 0 0;font-size:14px;font-weight:600">이전 운동 기록을 선택해주세요.</p>'+ds.map(k=>{const w=S.workouts[k],open=P.expanded===k;
-    return `<div class="exp ${open?'open':''}"><div class="exp-h" data-act="picker-expand" data-v="${k}"><div><div class="d">${fmtDay(k)}</div><div class="p">${partsOf(w).join(' · ')} · ${w.items.length}종목 · ${fmtKg(dayVolume(w))}</div></div>${I.chev}</div>
-      ${open?`<div class="exp-b">${w.items.map(it=>{const ex=exById(it.exId);const s=it.sets.filter(x=>x.kg!==''||x.reps!=='');return `<div class="li"><span>${esc(ex.name)}</span><span class="s">${s.map(x=>ex.mode==='time'?num(x.kg)+'분':num(x.kg)>0?num(x.kg)+'×'+num(x.reps):num(x.reps)+'회').join(', ')||'-'}</span></div>`;}).join('')}<div style="margin-top:10px"><button class="btn primary block" data-act="picker-past" data-v="${k}">이 날 운동 불러오기</button></div></div>`:''}</div>`;}).join('');
+    return `<div class="exp ${open?'open':''}"><div class="exp-h" data-act="picker-expand" data-v="${k}"><div><div class="d">${fmtDay(k)}</div><div class="p">${[partsOf(w).join(' · '),w.items.length+'종목',dayVolText(w)].filter(Boolean).join(' · ')}</div></div>${I.chev}</div>
+      ${open?`<div class="exp-b">${w.items.map(it=>{const ex=exById(it.exId);const m=modeOf(ex),s=it.sets.filter(x=>m==='reps'?x.reps!=='':(x.kg!==''||x.reps!==''));return `<div class="li"><span>${esc(ex.name)}</span><span class="s">${s.map(x=>m==='time'?num(x.kg)+'분':(m==='weight'&&num(x.kg)>0)?num(x.kg)+'×'+num(x.reps):num(x.reps)+'회').join(', ')||'-'}</span></div>`;}).join('')}<div style="margin-top:10px"><button class="btn primary block" data-act="picker-past" data-v="${k}">이 날 운동 불러오기</button></div></div>`:''}</div>`;}).join('');
 }
 
 /* ===================== routine editor ===================== */
@@ -809,12 +830,12 @@ function renderRoutineEditor(){
   let h=`<div class="sheet"><header class="topbar"><span class="topbar-s"><button class="iconbtn" data-act="re-close" aria-label="닫기">${I.back}</button></span><h1>${RE.isNew?'새 루틴':'루틴 편집'}</h1><span class="topbar-s r"></span></header><div class="body">`;
   h+=`<div class="card"><div class="field"><label>루틴 이름</label><input type="text" id="re-name" value="${esc(RE.name)}" placeholder="예: 등·이두 (월)" data-act="re-name"></div></div>`;
   const im=inputMode();
-  RE.items.forEach((it,i)=>{const ex=exById(it.exId),time=ex.mode==='time';
+  RE.items.forEach((it,i)=>{const ex=exById(it.exId),mode=modeOf(ex),M=MODES[mode];
     h+=`<section class="card ex" data-ri="${i}"><div class="ex-head"><span class="ex-idx">${i+1}</span>${thumb(ex,'sm')}<div class="grow ex-title"><span class="part">${esc(ex.part)}</span><span>${esc(ex.name)}</span></div>
       <button class="iconbtn" data-act="re-menu" aria-label="운동 메뉴">${I.more}</button></div>
-      <div class="sets noDone"><span class="h">세트</span><span class="h">${time?'분':ex.mode==='reps'?'+kg':'kg'}</span><span class="h">${time?'강도/거리':'회'}</span>`;
+      <div class="sets noDone ${mode}"><span class="h">세트</span>${M.cols.map(c=>`<span class="h">${c}</span>`).join('')}`;
     let wIdx=0;
-    it.sets.forEach((s,j)=>{const n=s.type==='warm'?0:(++wIdx);h+=setCell(s,n,`data-rsetopt="${j}"`)+`<input type="text" inputmode="${im}" enterkeyhint="next" placeholder="${time?'분':ex.mode==='reps'?'0':'kg'}" id="rkg-${i}-${j}" value="${esc(s.kg)}" data-rkg="${j}" data-col="${time?'min':'kg'}" aria-label="${j+1}세트 ${time?'분':'kg'}"><input type="text" inputmode="${im}" enterkeyhint="next" placeholder="${time?'km·레벨':'회'}" id="rrp-${i}-${j}" value="${esc(s.reps)}" data-rreps="${j}" data-col="${time?'dist':'reps'}" aria-label="${j+1}세트 ${time?'강도':'회'}">`;});
+    it.sets.forEach((s,j)=>{const n=s.type==='warm'?0:(++wIdx);h+=setCell(s,n,`data-rsetopt="${j}"`)+setInputs(M,s,im,`id="rkg-${i}-${j}" data-rkg="${j}"`,`id="rrp-${i}-${j}" data-rreps="${j}"`,j,'');});
     h+=`</div><div class="set-actions"><button data-act="re-set-del">${I.minus}세트삭제</button><button class="add" data-act="re-set-add">${I.plus}세트추가</button></div></section>`;});
   h+=`<button class="btn block" data-act="re-add">${I.plus} 운동 추가</button></div>`;
   h+=`<div class="foot"><button class="btn primary" data-act="re-save">저장</button></div></div>`;
@@ -878,7 +899,7 @@ function restBox(it){
 /* 세트 옵션 시트: 세트 타입(일반/웜업/드롭/실패), 운동 강도(세트·종목 1RM), RPE, 바벨 원판 계산.
    ctx={ex,sets,j,full,beforeKey,onChange}. full=false(루틴 편집)면 타입만. 바뀔 때마다 onChange 호출 */
 function setOptionsBox(ctx){
-  const {ex,sets,j,full}=ctx,s=sets[j],weight=ex.mode==='weight',kg=num(s.kg),reps=num(s.reps);
+  const {ex,sets,j,full}=ctx,s=sets[j],weight=modeOf(ex)==='weight',kg=num(s.kg),reps=num(s.reps);
   let h=`<div class="row"><h3 class="grow">${j+1}세트 <span class="muted" style="font-weight:600;font-size:14px">${esc(ex.name)}</span></h3><button class="iconbtn" data-act="modal-close" aria-label="닫기" style="margin:-8px -8px -8px 0">${I.plus.replace('<svg','<svg style="transform:rotate(45deg)"')}</button></div>`;
   if(full&&weight){
     const setRm=kg>0&&reps>0?e1rm(kg,reps):0,best=Math.max(bestE1rm(ex.id,ctx.beforeKey),...sets.filter((x,i)=>i!==j&&x.done&&!x.warm&&num(x.reps)>0).map(x=>e1rm(num(x.kg),num(x.reps))));
@@ -918,8 +939,8 @@ function customExBox(edit){
   const sel=(v,cur)=>v===cur?' selected':'';const mode=edit?edit.mode||'weight':'weight';
   modal(`<h3>${edit?'운동 정보 수정':'사용자 정의 운동'}</h3><div class="field"><label>이름</label><input type="text" id="cx-name" placeholder="예: 스미스 머신 스쿼트" maxlength="40" value="${edit?esc(edit.name):''}"></div>
     <div class="field"><label>부위</label><select id="cx-part">${PARTS.map(p=>`<option value="${p}"${sel(p,edit&&edit.part)}>${p}</option>`).join('')}</select></div>
-    <div class="field"><label>기록 방식</label><select id="cx-mode"><option value="weight"${sel('weight',mode)}>무게 × 횟수</option><option value="reps"${sel('reps',mode)}>횟수(맨몸) 기준</option><option value="time"${sel('time',mode)}>시간(분) 기준</option></select></div>
-    ${edit?'<p class="muted" style="font-size:12px">기록 방식을 바꾸면 이미 적은 숫자는 그대로 두고 칸 이름만 바뀌어요 (kg↔분, 회↔강도/거리).</p>':''}
+    <div class="field"><label>기록 방식</label><select id="cx-mode">${Object.keys(MODES).map(m=>`<option value="${m}"${sel(m,mode)}>${MODES[m].label}</option>`).join('')}</select></div>
+    <p class="muted" style="font-size:12px">무게 × 횟수: kg·회 입력, 볼륨·1RM 계산 (가중 풀업·딥스도 여기) / 횟수 기준: 회만 입력 / 시간 기준: 분·강도/거리 입력${edit?'<br>바꾸면 기존 기록에도 바로 적용돼요. 횟수 기준으로 바꾸면 이미 적은 kg 는 숨겨지고 계산에서 빠져요.':''}</p>
     <div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" id="cx-ok">${edit?'저장':'추가'}</button></div>`);
   setTimeout(()=>{const x=$('#cx-name');if(x)x.focus();},50);
   $('#cx-ok').onclick=()=>{const name=$('#cx-name').value.trim();if(!name){toast('이름을 입력하세요');return;}
@@ -1004,7 +1025,7 @@ function hideKeypad(){
 }
 function renderKeypad(){
   const el=KP.el;if(!el)return;
-  const col=el.dataset.col||'kg',[a,b]=kpSteps(col),unit=col==='kg'?'kg':col==='reps'?'회':col==='min'?'분':'';
+  const col=el.dataset.col||'kg',[a,b]=kpSteps(col),unit=col==='kg'?'kg':col==='reps'?'회':col==='min'?'분':col==='dist'?'km·레벨':'';
   const list=kpInputs(),i=list.indexOf(el),isLast=i===list.length-1;
   const info=`<span class="kp-info">${kpInfoHtml()}</span>`;
   $('#keypad').innerHTML=`<div class="kp-top"><button class="nav" data-kp="prev" ${i<=0?'disabled':''} aria-label="이전 칸">${I.up}</button><button class="nav" data-kp="next" ${isLast?'disabled':''} aria-label="다음 칸">${I.down}</button>${info}<button class="nav" data-kp="sys" aria-label="시스템 키보드">${I.keyboard}</button><button class="nav" data-kp="hide" aria-label="키패드 닫기">${I.kpHide}</button></div>
@@ -1057,7 +1078,7 @@ function makeSample(){
   for(let d=27;d>=1;d--){const k=addDays(t,-d);const dow=parse(k).getDay();if(dow===0||dow===3)continue;
     const plan=plans[p%3];const wk=Math.floor((27-d)/7);p++;
     const w={date:k,startedAt:parse(k).getTime()+19*3600000,finishedAt:parse(k).getTime()+20*3600000+10*60000,items:[],sample:true};
-    plan[1].forEach(ex=>{const id=find(ex[0]);const bump=exById(id).mode==='time'?0:(wk*2.5);
+    plan[1].forEach(ex=>{const id=find(ex[0]);const bump=modeOf(exById(id))==='weight'?(wk*2.5):0;
       w.items.push({id:uid(),exId:id,restSec:null,memo:'',sets:ex[1].map(s=>({kg:s[0]?s[0]+bump:s[0],reps:s[1],done:true,warm:false}))});});
     S.workouts[k]=w;}
   ['랫풀다운','시티드 케이블 로우','케이블 풀오버','바벨 컬','레그 프레스','레그 익스텐션','벤치 프레스','사이드 레터럴 레이즈'].forEach(n=>{S.exercises.find(e=>e.name===n).bookmark=true;});
@@ -1191,7 +1212,8 @@ document.addEventListener('click',e=>{
   if(b.dataset.rsetopt!=null&&RE){const i=+b.closest('[data-ri]').dataset.ri,ri=RE.items[i];setOptionsBox({ex:exById(ri.exId),sets:ri.sets,j:+b.dataset.rsetopt,full:false,onChange:()=>renderRoutineEditor()});return;}
   if(b.dataset.done!=null&&it){unlockAudio();const j=+b.dataset.done,s=it.sets[j];const ex=exById(it.exId);
     if(!s.done){
-      if(s.kg===''&&s.reps===''&&j>0){s.kg=it.sets[j-1].kg;s.reps=it.sets[j-1].reps;}
+      const empty=modeOf(ex)==='reps'?s.reps==='':(s.kg===''&&s.reps==='');
+      if(empty&&j>0){s.kg=it.sets[j-1].kg;s.reps=it.sets[j-1].reps;}
       const hadAnyDone=w.items.some(x=>x.sets.some(y=>y.done));
       if(!hadAnyDone&&V.date===todayKey()&&Date.now()-w.startedAt>900000)w.startedAt=Date.now();
       const wasPR=isItemPR(it,V.date);
@@ -1209,7 +1231,7 @@ document.addEventListener('click',e=>{
     case 'pick-day':V.date=b.dataset.date;render();break;
     case 'open-picker':openPicker('day');break;
     case 'sample':confirmBox('샘플 데이터 넣기','최근 4주치 가상 기록과 루틴 3개가 추가돼요. 설정에서 언제든 지울 수 있어요.','넣기',()=>{makeSample();render();toast('샘플 데이터를 넣었어요');});break;
-    case 'finish':if(!w)break;if(w.finishedAt){w.finishedAt=null;}else{w.finishedAt=Date.now();stopTimer();toast('수고했어요! '+fmtKg(dayVolume(w))+' 들었어요');}save();render();break;
+    case 'finish':if(!w)break;if(w.finishedAt){w.finishedAt=null;}else{w.finishedAt=Date.now();stopTimer();toast(hasWeightItem(w)?'수고했어요! '+fmtKg(dayVolume(w))+' 들었어요':'수고했어요!');}save();render();break;
     case 'day-menu':menuBox(fmtDay(V.date),[
       {label:'루틴으로 저장',icon:I.tabRoutine,fn:()=>saveRoutineBox(w)},
       {label:'이 날 기록 전체 삭제',icon:I.trash,danger:true,fn:()=>confirmBox('기록 삭제',fmtDay(V.date)+' 운동 기록을 모두 지울까요?','삭제',()=>{delete S.workouts[V.date];stopTimer();save();render();},true)}]);break;
