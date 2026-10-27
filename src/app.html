@@ -59,25 +59,67 @@ h1,h2,h3{margin:0;text-wrap:balance}
 
 .page{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:8px calc(84px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
 
-/* week strip */
-.week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:var(--surface);border-radius:var(--radius);padding:10px 6px;box-shadow:var(--shadow)}
-.week button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;border-radius:10px}
-.week .dow{font-size:11px;color:var(--muted)}
-.week .dn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600}
-.week .dot{width:5px;height:5px;border-radius:50%;background:transparent}
-.week .has .dot{background:var(--accent)}
-.week .sel .dn{background:var(--accent);color:var(--accent-fg)}
-.week .today .dn{box-shadow:inset 0 0 0 2px var(--accent)}
-.week .sel.today .dn{box-shadow:none}
-.week .future{opacity:.45}
+/* calendar on the today tab: week strip ⇄ month grid (S.settings.calView). Cell = day number + status bar:
+   accent bar = 운동 완료(finishedAt 또는 전 세트 완료), line-colored bar = 기록은 있지만 미완료 */
+.cal{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px 6px 8px}
+.cal-h{display:flex;align-items:center;gap:2px;padding:0 2px}
+.cal-h .m{flex:1;text-align:center;font-size:15px;font-weight:700}
+.cal-h .iconbtn{width:36px;height:36px}
+.cal-h .iconbtn.tog svg{transition:transform .2s}
+.cal-h .iconbtn.tog.open svg{transform:rotate(180deg)}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px 2px;text-align:center}
+.cal-g .dow{font-size:11px;color:var(--muted);padding:4px 0 2px}
+.cal-g .dow.su{color:var(--danger)}
+.cal-g .dow.sa{color:var(--info)}
+.cal-g button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:3px 0 2px;border-radius:10px}
+.cal-g .dn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600}
+.cal-g .bar{width:18px;height:4px;border-radius:2px;background:transparent}
+.cal-g .has .bar{background:var(--line)}
+.cal-g .fin .bar{background:var(--accent)}
+.cal-g .sel .dn{background:var(--accent);color:var(--accent-fg)}
+.cal-g .today .dn{box-shadow:inset 0 0 0 2px var(--accent)}
+.cal-g .sel.today .dn{box-shadow:none}
+.cal-g .out{opacity:.3}
+.cal-g .future{opacity:.45}
+.cal-f{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 6px 0;font-size:12px;color:var(--muted)}
+.cal-f .leg{display:flex;gap:10px;white-space:nowrap}
+.cal-f .leg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px;background:var(--accent)}
+.cal-f .leg i.p{background:var(--line)}
 
 /* cards */
 .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
-.summary{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.summary .lbl{font-size:13px;color:var(--muted)}
-.summary .val{font-size:26px;font-weight:700}
-.summary .sub{font-size:12px;color:var(--muted);text-align:right}
 .row{display:flex;align-items:center;gap:8px}
+/* day summary: 2×2 stat tiles (운동 시간 · 운동 개수 · 전체 볼륨 · 세트 완료) */
+.sum-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.sum-h h2{font-size:16px}
+.sum-h .p{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.tile{display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:12px;padding:10px 12px;min-height:58px;min-width:0}
+.tile svg{width:22px;height:22px;flex:none}
+.tile.c1 svg{color:var(--info)}
+.tile.c2 svg{color:var(--muted)}
+.tile.c3 svg{color:var(--accent)}
+.tile.c4 svg{color:var(--good)}
+.tile .v{font-size:20px;font-weight:700;line-height:1.1;white-space:nowrap}
+.tile .v small{font-size:12px;font-weight:600;color:var(--muted);margin-left:2px}
+.tile .l{font-size:12px;color:var(--muted);margin-top:3px}
+.dnote{width:100%;margin-top:12px;border:0;background:var(--surface-2);border-radius:10px;padding:9px 12px;font-size:14px;resize:none;min-height:38px;line-height:1.4}
+/* 완료된 날의 수행 운동 정보(읽기 전용 요약 목록) */
+.sl{display:flex;flex-direction:column;margin-top:4px}
+.sl .r{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.sl .r:last-child{border-bottom:0;padding-bottom:2px}
+.sl .n{color:var(--accent);font-family:var(--font-num);font-weight:700;font-size:16px;min-width:12px;flex:none}
+.sl .t{font-weight:700;font-size:15px;line-height:1.3;word-break:keep-all}
+.sl .t .part{color:var(--muted);font-weight:600;font-size:13px}
+.sl .t .part::after{content:"|";margin:0 6px;color:var(--line)}
+.sl .t .cnt{color:var(--muted);font-weight:600;font-size:13px;margin-left:4px}
+.sl .s{font-size:13px;color:var(--muted);margin-top:3px;font-family:var(--font-num);font-variant-numeric:tabular-nums;word-break:keep-all;line-height:1.4}
+.sl .s .nd{opacity:.5;text-decoration:line-through}
+.sl .vol{font-family:var(--font-num);font-weight:600;font-size:15px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sl .ok{width:22px;height:22px;border-radius:50%;background:var(--good);color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.sl .ok svg{width:14px;height:14px}
+.sl .ok.no{background:var(--surface-2);color:var(--muted)}
+.quick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .grow{flex:1;min-width:0}
 
 /* exercise card */
@@ -153,6 +195,7 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .empty svg{width:64px;height:64px;color:var(--muted)}
 .empty h2{font-size:20px}
 .empty p{margin:0;color:var(--muted);font-size:14px}
+.empty .btn svg{width:16px;height:16px}
 
 /* timer */
 .timer{position:fixed;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom,0px));z-index:7;padding:0 max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
@@ -337,18 +380,6 @@ body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--accent-soft);color:var(--accent);vertical-align:middle}
 .badge.pr{background:var(--good-soft);color:var(--good);margin-left:6px}
 .badge.tap{cursor:pointer}
-.cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.cal-head .m{font-size:17px;font-weight:700}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
-.cal-grid .dow{font-size:11px;color:var(--muted);padding:4px 0}
-.cal-grid button{height:42px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:var(--font-num);font-weight:600;font-size:15px}
-.cal-grid button .dot{width:5px;height:5px;border-radius:50%;background:transparent}
-.cal-grid button.has .dot{background:var(--accent)}
-.cal-grid button.sel{background:var(--accent);color:var(--accent-fg)}
-.cal-grid button.sel .dot{background:var(--accent-fg)}
-.cal-grid button.today{box-shadow:inset 0 0 0 2px var(--accent)}
-.cal-grid button.sel.today{box-shadow:none}
-.cal-grid button.out{opacity:.3}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 @media (min-width:600px){.page,.sheet .body{max-width:560px;margin:0 auto;width:100%}.topbar h1{font-size:18px}.tabbar,.actionbar,.timer{max-width:560px;margin:0 auto}}
 </style>
@@ -377,7 +408,7 @@ const SEED=[
  ['복근','크런치'],['복근','레그 레이즈'],['복근','행잉 레그 레이즈'],['복근','케이블 크런치'],['복근','플랭크','time'],['복근','러시안 트위스트'],
  ['유산소','러닝머신','time'],['유산소','사이클','time'],['유산소','계단 오르기','time'],['유산소','로잉 머신','time'],['유산소','일립티컬','time'],['유산소','걷기','time']
 ];
-const DEFAULTS={restSec:90,autoTimer:true,sound:true,vibrate:true,wakeLock:true,routineFill:'last',keypad:true,barKg:20};
+const DEFAULTS={restSec:90,autoTimer:true,sound:true,vibrate:true,wakeLock:true,routineFill:'last',keypad:true,barKg:20,calView:'month'};
 const SET_TYPES={'':'일반',warm:'웜업',drop:'드롭',fail:'실패'};
 const TYPE_TAG={warm:'W',drop:'D',fail:'F'};
 let S=null;
@@ -428,6 +459,9 @@ function fmtTime(ts){const d=new Date(ts);return pad(d.getHours())+':'+pad(d.get
 function daysBetween(a,b){return Math.round((parse(b)-parse(a))/86400000);}
 function ago(k){const n=daysBetween(k,todayKey());return n===0?'오늘':n===1?'어제':n>1?n+'일 전':(-n)+'일 후';}
 function weekStart(k){const d=parse(k);d.setDate(d.getDate()-d.getDay());return dkey(d);}
+function monthStart(k){return k.slice(0,7)+'-01';}
+function addMonths(k,n){const d=parse(k);return dkey(new Date(d.getFullYear(),d.getMonth()+n,1));}
+function fmtDur(m){return m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'');}
 
 /* ===================== domain helpers ===================== */
 const exById=id=>S.exercises.find(e=>e.id===id)||{id,name:'(삭제된 운동)',part:'기타',mode:'weight'};
@@ -454,6 +488,18 @@ function itemMetric(it){const ex=exById(it.exId),m=modeOf(ex);
   if(m==='reps')return {label:'완료 횟수',value:it.sets.reduce((a,s)=>a+(s.done&&!s.warm?num(s.reps):0),0)+'회'};
   return null;}
 function partsOf(w){const seen=[];w.items.forEach(it=>{const p=exById(it.exId).part;if(!seen.includes(p))seen.push(p);});return seen;}
+/* 캘린더용 하루 상태: ''(없음) | has(기록 있음, 미완료) | fin(운동 완료 또는 모든 세트 완료) */
+function dayStatus(k){const w=S.workouts[k];if(!w||!w.items.length)return '';if(w.finishedAt)return 'fin';const sets=w.items.flatMap(it=>it.sets);return sets.length&&sets.every(s=>s.done)?'fin':'has';}
+/* 운동 시간(분). 완료 전이면 지금까지, 말이 안 되는 값(음수·12시간 초과·1분 미만)은 null */
+function dayDuration(w){if(!w.startedAt)return null;const end=w.finishedAt||Date.now();const m=Math.round((end-w.startedAt)/60000);return m>=1&&m<=720?m:null;}
+function daySetCount(w){return {total:w.items.reduce((a,it)=>a+it.sets.filter(s=>!s.warm).length,0),done:w.items.reduce((a,it)=>a+it.sets.filter(s=>s.done&&!s.warm).length,0)};}
+/* 세트 한 개를 글자로: weight 30×12, reps 12회, time 15분. 비어 있으면 '' */
+function setText(mode,s){
+  if(mode==='time')return s.kg===''?'':num(s.kg)+'분';
+  if(mode==='reps')return s.reps===''?'':num(s.reps)+'회';
+  if(s.kg===''&&s.reps==='')return '';
+  return (s.warm?'W':'')+num(s.kg)+'×'+num(s.reps);
+}
 function sortedDates(){return Object.keys(S.workouts).filter(k=>S.workouts[k].items.length).sort();}
 function restOf(it){return it.restSec==null?S.settings.restSec:it.restSec;}
 function lastRecord(exId,beforeKey){
@@ -485,7 +531,9 @@ function isItemPR(it,dateKey){
 }
 
 /* ===================== view state ===================== */
-const V={tab:'today',date:todayKey(),weekAnchor:todayKey(),openMenu:null};
+const V={tab:'today',date:todayKey(),weekAnchor:todayKey(),calMonth:monthStart(todayKey()),openMenu:null};
+/* 날짜 이동은 항상 이걸로: 주간 스트립과 월 그리드가 선택한 날을 따라가게 */
+function goDate(k){V.date=k;V.weekAnchor=k;V.calMonth=monthStart(k);}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const I={
@@ -510,6 +558,8 @@ const I={
   keyboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>',
   kpHide:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="12" rx="2"/><path d="M7 7h.01M11 7h.01M15 7h.01M7 11h10M9 19l3 3 3-3"/></svg>',
   backspace:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H8l-5 6 5 6h13a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1z"/><path d="M12 9l6 6M18 9l-6 6"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  plate:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M21 10v4M6 7v10M18 7v10M9 5v14M15 5v14M9 12h6"/></svg>',
   dumbbell:'<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="24" width="8" height="16" rx="2"/><rect x="12" y="18" width="8" height="28" rx="2"/><rect x="44" y="18" width="8" height="28" rx="2"/><rect x="52" y="24" width="8" height="16" rx="2"/><path d="M20 32h24"/></svg>',
   tabToday:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   tabRoutine:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
@@ -535,7 +585,7 @@ function render(){
   renderTabbar();
   document.body.classList.toggle('has-actionbar',!!app.querySelector('.actionbar'));
   if(renderedTab===V.tab&&y)window.scrollTo(0,y);renderedTab=V.tab;
-  document.querySelectorAll('.memo').forEach(t=>{if(t.value){t.style.height='auto';t.style.height=t.scrollHeight+'px';}});
+  document.querySelectorAll('.memo,.dnote').forEach(t=>{if(t.value){t.style.height='auto';t.style.height=t.scrollHeight+'px';}});
   if(focusId||focusMemo){
     const nel=focusId?document.getElementById(focusId):document.querySelector(`[data-memo="${focusMemo}"]`);
     if(nel){nel.focus();try{if(selS!=null)nel.setSelectionRange(selS,selE);}catch(e){}}
@@ -555,21 +605,20 @@ function renderToday(){
   const k=V.date,w=S.workouts[k],hasItems=w&&w.items.length;
   const left=`<button class="iconbtn" data-act="day-prev" aria-label="이전 날">${I.prev}</button>`;
   const right=`<button class="iconbtn" data-act="day-next" aria-label="다음 날">${I.next}</button>`+(hasItems?`<button class="iconbtn" data-act="day-menu" aria-label="메뉴">${I.more}</button>`:'');
-  const titleHtml=`<button class="date-btn" data-act="open-cal" aria-label="달력 열기"><span>${fmtDay(k)}</span>${I.chev}</button>`+(k===todayKey()?'':`<button class="badge tap" data-act="go-today" title="오늘로 이동">${ago(k)} · 오늘로</button>`);
+  const titleHtml=`<button class="date-btn" data-act="open-cal" aria-label="달력 펼치기/접기"><span>${fmtDay(k)}</span>${I.chev}</button>`+(k===todayKey()?'':`<button class="badge tap" data-act="go-today" title="오늘로 이동">${ago(k)} · 오늘로</button>`);
   let html=topbar(titleHtml,left,right);
-  html+='<div class="page">'+renderWeek();
+  html+='<div class="page">'+renderCal();
   if(!hasItems){
-    const last=sortedDates().filter(d=>d<k).pop();
-    html+=`<div class="empty">${I.dumbbell}<h2>${k===todayKey()?'오늘 운동을 시작해 볼까요?':fmtDay(k)+' 기록이 없어요'}</h2>
+    const last=sortedDates().filter(d=>d<k).pop(),isToday=k===todayKey(),past=k<todayKey();
+    html+=`<div class="empty">${I.dumbbell}<h2>${isToday?'오늘 운동을 시작해 볼까요?':past?fmtDay(k)+'은 쉬었어요':fmtDay(k)+' 운동을 미리 짜 둘까요?'}</h2>
       ${last?`<p>${['마지막 운동 '+fmtDay(last),partsOf(S.workouts[last]).join(' · '),dayVolText(S.workouts[last])].filter(Boolean).join(' · ')}</p>`:'<p>운동을 추가하면 세트별 무게와 횟수를 기록할 수 있어요.</p>'}
       <button class="btn primary" data-act="open-picker" style="min-width:220px">운동 추가하기</button>
+      ${S.routines.length||sortedDates().length?`<div class="quick">${S.routines.length?`<button class="btn sm" data-act="open-picker" data-v="routine">${I.tabRoutine} 루틴 불러오기</button>`:''}${sortedDates().length?`<button class="btn sm" data-act="open-picker" data-v="past">${I.reload} 지난 운동 불러오기</button>`:''}</div>`:''}
       ${sortedDates().length?'':'<button class="btn ghost sm" data-act="sample">샘플 데이터로 둘러보기</button>'}
     </div>`;
   }else{
-    const total=w.items.reduce((a,it)=>a+it.sets.filter(s=>!s.warm).length,0),done=w.items.reduce((a,it)=>a+it.sets.filter(s=>s.done&&!s.warm).length,0);
-    html+=`<div class="card summary"><div><div class="lbl">완료 볼륨</div><div class="val num" id="dayvol">${dayVolText(w)||'–'}</div></div>
-      <div class="sub">${partsOf(w).join(' · ')}<br>본세트 <span class="num" id="daysets">${done}/${total}</span> 완료${w.finishedAt?' · '+fmtTime(w.startedAt)+'–'+fmtTime(w.finishedAt):''}${w.sample?' · <span class="badge">샘플</span>':''}</div></div>`;
-    html+=w.items.map((it,i)=>renderItem(it,i)).join('');
+    html+=renderDaySummary(w,k);
+    if(!w.finishedAt)html+=w.items.map((it,i)=>renderItem(it,i)).join('');
     html+=`<div style="height:64px"></div></div>
       <div class="actionbar"><button class="btn" data-act="open-picker">${I.plus} 운동 추가</button>
       <button class="btn ${w.finishedAt?'':'good'}" data-act="finish">${w.finishedAt?'운동 완료됨 · 다시 열기':'운동 완료'}</button></div>`;
@@ -577,11 +626,50 @@ function renderToday(){
   }
   return html+'</div>';
 }
-function renderWeek(){
-  const ws=weekStart(V.weekAnchor),t=todayKey();
-  let h='<div class="week">';
-  for(let i=0;i<7;i++){const k=addDays(ws,i),w=S.workouts[k];
-    h+=`<button data-act="pick-day" data-date="${k}" class="${k===V.date?'sel':''} ${k===t?'today':''} ${w&&w.items.length?'has':''} ${k>t?'future':''}"><span class="dow">${DOW[i]}</span><span class="dn num">${parse(k).getDate()}</span><span class="dot"></span></button>`;}
+/* 캘린더: 설정 calView 가 month 면 월 그리드, 아니면 주간 스트립. 헤더의 ‹ › 는 월/주 단위 이동, ⌄ 는 전환.
+   하단에는 보이는 기간(이 달/이 주)의 운동 일수·볼륨과 범례 */
+function renderCal(){
+  const t=todayKey(),month=S.settings.calView==='month';
+  let keys=[],title;
+  if(month){
+    const d=parse(V.calMonth),y=d.getFullYear(),m=d.getMonth(),first=dkey(new Date(y,m,1)),nDays=new Date(y,m+1,0).getDate();
+    const start=addDays(first,-parse(first).getDay()),rows=Math.ceil((parse(first).getDay()+nDays)/7);
+    for(let i=0;i<rows*7;i++)keys.push(addDays(start,i));
+    title=y+'년 '+(m+1)+'월';
+  }else{
+    const ws=weekStart(V.weekAnchor);for(let i=0;i<7;i++)keys.push(addDays(ws,i));
+    const d=parse(V.weekAnchor);title=d.getFullYear()+'년 '+(d.getMonth()+1)+'월';
+  }
+  const curM=month?V.calMonth.slice(0,7):null;
+  let h=`<div class="cal"><div class="cal-h"><button class="iconbtn" data-act="cal-prev" aria-label="${month?'이전 달':'이전 주'}">${I.prev}</button><span class="m num">${title}</span><button class="iconbtn" data-act="cal-next" aria-label="${month?'다음 달':'다음 주'}">${I.next}</button><button class="iconbtn tog ${month?'open':''}" data-act="cal-toggle" aria-label="${month?'주간으로 접기':'월간으로 펼치기'}">${I.chev}</button></div><div class="cal-g">`;
+  h+=DOW.map((w,i)=>`<span class="dow ${i===0?'su':i===6?'sa':''}">${w}</span>`).join('');
+  keys.forEach(k=>{const st=dayStatus(k),out=curM&&k.slice(0,7)!==curM;
+    h+=`<button data-act="pick-day" data-date="${k}" class="${k===V.date?'sel':''} ${k===t?'today':''} ${st} ${out?'out':''} ${k>t?'future':''}" aria-label="${fmtDay(k)}${st==='fin'?' 운동 완료':st?' 기록 있음':''}"><span class="dn num">${parse(k).getDate()}</span><span class="bar"></span></button>`;});
+  // range stats (이 달은 달력에 보이는 다른 달 날짜를 빼고 센다)
+  const inRange=keys.filter(k=>!curM||k.slice(0,7)===curM).filter(k=>S.workouts[k]&&S.workouts[k].items.length);
+  const vol=inRange.reduce((a,k)=>a+dayVolume(S.workouts[k]),0);
+  h+=`</div><div class="cal-f"><span>${month?'이 달':'이 주'} 운동 <b class="num">${inRange.length}</b>일${vol?' · <b class="num">'+fmtKg(vol)+'</b>':''}</span><span class="leg"><span><i></i>완료</span><span><i class="p"></i>미완료</span></span></div></div>`;
+  return h;
+}
+/* 하루 요약 카드: 2×2 타일(운동 시간 · 운동 개수 · 전체 볼륨 · 세트 완료) + 하루 메모.
+   운동을 완료한 날은 카드를 접고 여기에 수행 운동 정보(종목별 세트·볼륨)를 읽기 전용으로 보여준다 */
+function renderDaySummary(w,k){
+  const sc=daySetCount(w),dur=dayDuration(w),live=!w.finishedAt&&k===todayKey()&&sc.done>0;
+  const prs=w.items.filter(it=>isItemPR(it,k)).length;
+  let h=`<div class="card"><div class="sum-h"><h2>${w.finishedAt?'운동 요약':'오늘의 운동'}${prs?` <span class="badge pr" style="margin-left:4px">PR ${prs}</span>`:''}${w.sample?' <span class="badge">샘플</span>':''}</h2><span class="p">${[partsOf(w).join(' · '),w.finishedAt&&dur!=null?fmtTime(w.startedAt)+'–'+fmtTime(w.finishedAt):''].filter(Boolean).join(' · ')}</span></div>
+    <div class="tiles">
+      <div class="tile c1">${I.clock}<div><div class="v num" id="daytime" ${live?'data-live="1"':''}>${dur!=null?fmtDur(dur):'–'}</div><div class="l">${live?'운동 중':'운동 시간'}</div></div></div>
+      <div class="tile c2">${I.dumbbell}<div><div class="v num">${w.items.length}<small>개</small></div><div class="l">운동 개수</div></div></div>
+      <div class="tile c3">${I.plate}<div><div class="v num" id="dayvol">${dayVolText(w)||'–'}</div><div class="l">전체 볼륨</div></div></div>
+      <div class="tile c4">${I.check}<div><div class="v num"><span id="daysets">${sc.done}/${sc.total}</span></div><div class="l">본세트 완료</div></div></div>
+    </div>
+    <textarea class="dnote" rows="1" placeholder="오늘 운동 후기를 남겨보세요" data-dnote="${k}">${esc(w.note)}</textarea>`;
+  if(w.finishedAt){
+    h+=`<div class="sec-h" style="margin-top:14px">수행 운동 정보</div><div class="sl">`+w.items.map((it,i)=>{
+      const ex=exById(it.exId),m=modeOf(ex),met=itemMetric(it),all=it.sets.length>0&&it.sets.every(s=>s.done);
+      const sets=it.sets.map(s=>{const t=setText(m,s);return t?(s.done?t:`<span class="nd">${t}</span>`):'';}).filter(Boolean).join(', ');
+      return `<div class="r"><span class="n">${i+1}</span><div class="grow"><div class="t"><span class="part">${esc(ex.part)}</span>${esc(ex.name)}<span class="cnt">${it.sets.length}세트</span>${isItemPR(it,k)?'<span class="badge pr">PR</span>':''}</div><div class="s">${sets||'–'}${it.memo?` · <span style="font-family:var(--font-body)">${esc(it.memo)}</span>`:''}</div></div>${met?`<span class="vol">${met.value}</span>`:''}<span class="ok ${all?'':'no'}" aria-label="${all?'모든 세트 완료':'미완료 세트 있음'}">${I.check}</span></div>`;}).join('')+'</div>';
+  }
   return h+'</div>';
 }
 /* 세트 번호 칸: W/D/F 는 글자 배지, 본세트만 번호를 센다. 탭하면 세트 옵션 시트 */
@@ -871,23 +959,6 @@ function menuBox(title,items){
     // 히스토리를 건드리지 않고 비운 뒤 실행 → 다음 동작이 모달을 열면 history.back()의 popstate가 새 모달을 닫아버리는 문제 방지
     $('#modal').innerHTML='';items[+b.dataset.mi].fn();syncHistory();};});
 }
-function calendarBox(anchorKey){
-  const d=parse(anchorKey||V.date),y=d.getFullYear(),m=d.getMonth();
-  const first=new Date(y,m,1),startDow=first.getDay(),startKey=addDays(dkey(first),-startDow);
-  const t=todayKey();
-  let cells=DOW.map(w=>`<span class="dow">${w}</span>`).join('');
-  for(let i=0;i<42;i++){
-    const k=addDays(startKey,i),cd=parse(k),inMonth=cd.getMonth()===m,w=S.workouts[k];
-    cells+=`<button type="button" data-cal-day="${k}" class="${inMonth?'':'out'} ${k===V.date?'sel':''} ${k===t?'today':''} ${w&&w.items.length?'has':''}"><span>${cd.getDate()}</span><span class="dot"></span></button>`;
-  }
-  modal(`<div class="cal-head"><button class="iconbtn" id="cal-prev" aria-label="이전 달">${I.prev}</button><div class="m num">${y}년 ${m+1}월</div><button class="iconbtn" id="cal-next" aria-label="다음 달">${I.next}</button></div>
-    <div class="cal-grid">${cells}</div>
-    <div class="acts"><button class="btn" data-act="modal-close">닫기</button>${V.date===t?'':`<button class="btn primary" id="cal-today">오늘로 이동</button>`}</div>`);
-  $('#cal-prev').onclick=()=>calendarBox(dkey(new Date(y,m-1,1)));
-  $('#cal-next').onclick=()=>calendarBox(dkey(new Date(y,m+1,1)));
-  const ct=$('#cal-today');if(ct)ct.onclick=()=>{V.date=t;V.weekAnchor=t;closeModal();render();};
-  document.querySelectorAll('[data-cal-day]').forEach(b=>{b.onclick=()=>{V.date=b.dataset.calDay;V.weekAnchor=V.date;closeModal();render();};});
-}
 function restBox(it){
   const cur=restOf(it);const opts=[0,60,90,120,150,180];
   modal(`<h3>휴식 시간 · ${esc(exById(it.exId).name)}</h3><p>세트 완료를 누르면 이 시간만큼 타이머가 돌아요.</p><div class="opts">${opts.map(v=>`<button data-rv="${v}" class="${cur===v?'on':''}">${v?v+'초':'OFF'}</button>`).join('')}</div>
@@ -1003,6 +1074,8 @@ function tick(){
   const ki=$('#keypad .kp-info');if(ki&&KP.el)ki.innerHTML=kpInfoHtml();
 }
 setInterval(tick,500);
+/* 요약 타일의 '운동 중' 경과 시간은 분 단위라 20초마다만 갱신 */
+setInterval(()=>{const el=$('#daytime');if(!el||!el.dataset.live)return;const w=S.workouts[V.date];if(!w||w.finishedAt)return;const m=dayDuration(w);el.textContent=m==null?'–':fmtDur(m);},20000);
 
 /* ===================== in-app keypad ===================== */
 /* 세트 입력칸(.sets input)은 설정의 keypad 가 켜져 있으면 inputmode=none 으로 시스템 키보드를 막고,
@@ -1224,14 +1297,17 @@ document.addEventListener('click',e=>{
     save();render();return;}
   const act=b.dataset.act,v=b.dataset.v;
   switch(act){
-    case 'day-prev':V.date=addDays(V.date,-1);V.weekAnchor=V.date;render();break;
-    case 'day-next':V.date=addDays(V.date,1);V.weekAnchor=V.date;render();break;
-    case 'go-today':V.date=todayKey();V.weekAnchor=V.date;render();break;
-    case 'open-cal':calendarBox(V.date);break;
-    case 'pick-day':V.date=b.dataset.date;render();break;
-    case 'open-picker':openPicker('day');break;
+    case 'day-prev':goDate(addDays(V.date,-1));render();break;
+    case 'day-next':goDate(addDays(V.date,1));render();break;
+    case 'go-today':goDate(todayKey());render();break;
+    case 'open-cal':case 'cal-toggle':{const toMonth=S.settings.calView!=='month';S.settings.calView=toMonth?'month':'week';goDate(V.date);save();render();}break;
+    case 'cal-prev':case 'cal-next':{const d=act==='cal-next'?1:-1;if(S.settings.calView==='month')V.calMonth=addMonths(V.calMonth,d);else V.weekAnchor=addDays(V.weekAnchor,7*d);render();}break;
+    case 'pick-day':goDate(b.dataset.date);render();break;
+    case 'open-picker':if(w&&w.finishedAt){w.finishedAt=null;save();}openPicker('day',v?{tab:v}:null);break;
     case 'sample':confirmBox('샘플 데이터 넣기','최근 4주치 가상 기록과 루틴 3개가 추가돼요. 설정에서 언제든 지울 수 있어요.','넣기',()=>{makeSample();render();toast('샘플 데이터를 넣었어요');});break;
-    case 'finish':if(!w)break;if(w.finishedAt){w.finishedAt=null;}else{w.finishedAt=Date.now();stopTimer();toast(hasWeightItem(w)?'수고했어요! '+fmtKg(dayVolume(w))+' 들었어요':'수고했어요!');}save();render();break;
+    case 'finish':if(!w)break;if(w.finishedAt){w.finishedAt=null;}else{
+      // 지난 날짜를 다시 완료하면 운동 시간을 알 수 없으니 startedAt 과 같게 두어 '–' 로 보이게 한다
+      w.finishedAt=V.date===todayKey()?Date.now():(w.startedAt||Date.now());stopTimer();toast(hasWeightItem(w)?'수고했어요! '+fmtKg(dayVolume(w))+' 들었어요':'수고했어요!');window.scrollTo(0,0);}save();render();break;
     case 'day-menu':menuBox(fmtDay(V.date),[
       {label:'루틴으로 저장',icon:I.tabRoutine,fn:()=>saveRoutineBox(w)},
       {label:'이 날 기록 전체 삭제',icon:I.trash,danger:true,fn:()=>confirmBox('기록 삭제',fmtDay(V.date)+' 운동 기록을 모두 지울까요?','삭제',()=>{delete S.workouts[V.date];stopTimer();save();render();},true)}]);break;
@@ -1317,6 +1393,7 @@ document.addEventListener('input',e=>{
     const j=+(t.dataset.kg!=null?t.dataset.kg:t.dataset.reps);const val=cleanNum(t.value);if(val!==t.value)t.value=val;
     if(t.dataset.kg!=null)it.sets[j].kg=val;else it.sets[j].reps=val;save();refreshVolumes();return;}
   if(t.dataset.memo){const w=S.workouts[V.date];const it=w&&w.items.find(x=>x.id===t.dataset.memo);if(it){it.memo=t.value;save();}t.style.height='auto';t.style.height=t.scrollHeight+'px';return;}
+  if(t.dataset.dnote){const w=S.workouts[t.dataset.dnote];if(w){w.note=t.value;if(!w.note)delete w.note;save();}t.style.height='auto';t.style.height=t.scrollHeight+'px';return;}
   if(t.dataset.rkg!=null||t.dataset.rreps!=null){const i=+t.closest('[data-ri]').dataset.ri,j=+(t.dataset.rkg!=null?t.dataset.rkg:t.dataset.rreps);const val=cleanNum(t.value);if(val!==t.value)t.value=val;if(t.dataset.rkg!=null)RE.items[i].sets[j].kg=val;else RE.items[i].sets[j].reps=val;return;}
   if(t.dataset.act==='picker-q'){P.q=t.value;const pl=$('#picker-list');if(pl)pl.innerHTML=pickerAddList();else{P.focusQ=true;renderPicker();}return;}
   if(t.dataset.act==='re-name'){RE.name=t.value;return;}
