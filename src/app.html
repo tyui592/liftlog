@@ -197,16 +197,10 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .empty p{margin:0;color:var(--muted);font-size:14px}
 .empty .btn svg{width:16px;height:16px}
 
-/* timer */
-.timer{position:fixed;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom,0px));z-index:7;padding:0 max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
-body.has-actionbar .timer{bottom:calc(128px + env(safe-area-inset-bottom,0px))}
-.timer-box{background:var(--fg);color:var(--bg);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-.timer-box .bar{position:absolute;left:0;bottom:0;height:4px;background:var(--accent);transition:width .25s linear}
-.timer-box .t{font-family:var(--font-num);font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;min-width:74px}
-.timer-box .lbl{font-size:12px;opacity:.75}
-.timer-box button{height:34px;padding:0 12px;border-radius:9px;background:rgba(128,128,128,.25);font-weight:700;font-size:14px}
-.timer-box.over{background:var(--accent);color:var(--accent-fg)}
-.timer-box.over .bar{display:none}
+/* workout duration controls in the day summary */
+.session .session-foot{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.session .hint{font-size:12px;color:var(--muted)}
+.session .session-controls{display:flex;gap:8px;flex:none}
 
 /* in-app numeric keypad for set inputs (replaces the system keyboard; see keypad section in JS) */
 .keypad{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:repeat(3,1fr) 1fr 1fr;grid-auto-rows:46px;gap:6px;user-select:none;-webkit-user-select:none;box-shadow:0 -6px 20px rgba(0,0,0,.08)}
@@ -215,7 +209,6 @@ body.has-actionbar .timer{bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .keypad .kp-top .nav svg{width:18px;height:18px}
 .keypad .kp-top .kp-info{flex:1;text-align:center;font-size:13px;color:var(--muted);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .keypad .kp-top .kp-info b{color:var(--accent);font-family:var(--font-num)}
-.keypad .kp-top .kp-info.over b{color:var(--good)}
 .keypad .k{border-radius:10px;background:var(--surface-2);font-family:var(--font-num);font-size:24px;font-weight:600;display:flex;align-items:center;justify-content:center}
 .keypad .k:active{background:var(--line)}
 .keypad .k.fn{font-size:18px;font-weight:700;color:var(--fg);background:var(--bg)}
@@ -226,7 +219,7 @@ body.has-actionbar .timer{bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .keypad .k.span2{grid-column:span 2}
 body.has-keypad .page{padding-bottom:calc(300px + env(safe-area-inset-bottom,0px))}
 body.has-keypad .sheet .body{padding-bottom:calc(300px + env(safe-area-inset-bottom,0px))}
-body.has-keypad .actionbar,body.has-keypad .sheet .foot,body.has-keypad .timer,body.has-keypad .tabbar{display:none}
+body.has-keypad .actionbar,body.has-keypad .sheet .foot,body.has-keypad .tabbar{display:none}
 body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 
 /* set options sheet */
@@ -381,11 +374,10 @@ body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 .badge.pr{background:var(--good-soft);color:var(--good);margin-left:6px}
 .badge.tap{cursor:pointer}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
-@media (min-width:600px){.page,.sheet .body{max-width:560px;margin:0 auto;width:100%}.topbar h1{font-size:18px}.tabbar,.actionbar,.timer{max-width:560px;margin:0 auto}}
+@media (min-width:600px){.page,.sheet .body{max-width:560px;margin:0 auto;width:100%}.topbar h1{font-size:18px}.tabbar,.actionbar{max-width:560px;margin:0 auto}}
 </style>
 
 <div id="app"></div>
-<div id="timer" class="timer" hidden></div>
 <div id="keypad" class="keypad" hidden></div>
 <nav class="tabbar" id="tabbar"></nav>
 <div id="overlay"></div>
@@ -408,7 +400,7 @@ const SEED=[
  ['복근','크런치'],['복근','레그 레이즈'],['복근','행잉 레그 레이즈'],['복근','케이블 크런치'],['복근','플랭크','time'],['복근','러시안 트위스트'],
  ['유산소','러닝머신','time'],['유산소','사이클','time'],['유산소','계단 오르기','time'],['유산소','로잉 머신','time'],['유산소','일립티컬','time'],['유산소','걷기','time']
 ];
-const DEFAULTS={restSec:90,autoTimer:true,sound:true,vibrate:true,wakeLock:true,routineFill:'last',keypad:true,barKg:20,calView:'month'};
+const DEFAULTS={wakeLock:true,routineFill:'last',keypad:true,barKg:20,calView:'month'};
 const SET_TYPES={'':'일반',warm:'웜업',drop:'드롭',fail:'실패'};
 const TYPE_TAG={warm:'W',drop:'D',fail:'F'};
 let S=null;
@@ -424,8 +416,9 @@ function load(){
 function normalize(){
   S.version=1;
   S.settings=Object.assign({},DEFAULTS,S.settings||{});
+  ['restSec','autoTimer','sound','vibrate'].forEach(k=>delete S.settings[k]);
   if(!Array.isArray(S.routines))S.routines=[];if(!S.workouts||typeof S.workouts!=='object')S.workouts={};
-  Object.keys(S.workouts).forEach(k=>{const w=S.workouts[k];if(!w||!Array.isArray(w.items)){delete S.workouts[k];return;}w.date=k;w.items.forEach(it=>{if(!it.id)it.id=uid();if(!Array.isArray(it.sets))it.sets=[];it.sets.forEach(s=>{if(s.done==null)s.done=false;normSet(s);});if(it.memo==null)it.memo='';});});
+  Object.keys(S.workouts).forEach(k=>{const w=S.workouts[k];if(!w||!Array.isArray(w.items)){delete S.workouts[k];return;}w.date=k;normalizeDuration(w);w.items.forEach(it=>{delete it.restSec;if(!it.id)it.id=uid();if(!Array.isArray(it.sets))it.sets=[];it.sets.forEach(s=>{if(s.done==null)s.done=false;normSet(s);});if(it.memo==null)it.memo='';});});
   S.routines.forEach(r=>{if(!Array.isArray(r.items))r.items=[];r.items.forEach(ri=>{if(!Array.isArray(ri.sets))ri.sets=[];ri.sets.forEach(normSet);});});
   // merge any new seed exercises added in later versions
   const have=new Set(S.exercises.map(e=>e.id));
@@ -442,7 +435,8 @@ function setType(s,t){s.type=t in SET_TYPES?t:'';s.warm=s.type==='warm';}
 function copySet(s,keepDone){const o={kg:s.kg,reps:s.reps,done:!!(keepDone&&s.done),warm:!!s.warm,type:s.type||(s.warm?'warm':'')};return o;}
 let saveT=null;
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('저장 실패: 브라우저 저장 공간을 확인하세요');}}
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{persist();markLocalChanges();},150);}
+function flushSave(){clearTimeout(saveT);saveT=null;persist();markLocalChanges();}
+function save(){clearTimeout(saveT);saveT=setTimeout(flushSave,150);}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 function cleanNum(v){const s=String(v==null?'':v).replace(/[^0-9.]/g,'');const p=s.split('.');return p.length>2?p[0]+'.'+p.slice(1).join(''):s;}
 
@@ -461,7 +455,6 @@ function ago(k){const n=daysBetween(k,todayKey());return n===0?'오늘':n===1?'�
 function weekStart(k){const d=parse(k);d.setDate(d.getDate()-d.getDay());return dkey(d);}
 function monthStart(k){return k.slice(0,7)+'-01';}
 function addMonths(k,n){const d=parse(k);return dkey(new Date(d.getFullYear(),d.getMonth()+n,1));}
-function fmtDur(m){return m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'');}
 
 /* ===================== domain helpers ===================== */
 const exById=id=>S.exercises.find(e=>e.id===id)||{id,name:'(삭제된 운동)',part:'기타',mode:'weight'};
@@ -490,8 +483,6 @@ function itemMetric(it){const ex=exById(it.exId),m=modeOf(ex);
 function partsOf(w){const seen=[];w.items.forEach(it=>{const p=exById(it.exId).part;if(!seen.includes(p))seen.push(p);});return seen;}
 /* 캘린더용 하루 상태: ''(없음) | has(기록 있음, 미완료) | fin(운동 완료 또는 모든 세트 완료) */
 function dayStatus(k){const w=S.workouts[k];if(!w||!w.items.length)return '';if(w.finishedAt)return 'fin';const sets=w.items.flatMap(it=>it.sets);return sets.length&&sets.every(s=>s.done)?'fin':'has';}
-/* 운동 시간(분). 완료 전이면 지금까지, 말이 안 되는 값(음수·12시간 초과·1분 미만)은 null */
-function dayDuration(w){if(!w.startedAt)return null;const end=w.finishedAt||Date.now();const m=Math.round((end-w.startedAt)/60000);return m>=1&&m<=720?m:null;}
 function daySetCount(w){return {total:w.items.reduce((a,it)=>a+it.sets.filter(s=>!s.warm).length,0),done:w.items.reduce((a,it)=>a+it.sets.filter(s=>s.done&&!s.warm).length,0)};}
 /* 세트 한 개를 글자로: weight 30×12, reps 12회, time 15분. 비어 있으면 '' */
 function setText(mode,s){
@@ -501,19 +492,18 @@ function setText(mode,s){
   return (s.warm?'W':'')+num(s.kg)+'×'+num(s.reps);
 }
 function sortedDates(){return Object.keys(S.workouts).filter(k=>S.workouts[k].items.length).sort();}
-function restOf(it){return it.restSec==null?S.settings.restSec:it.restSec;}
 function lastRecord(exId,beforeKey){
   const ds=sortedDates().reverse();
-  for(const k of ds){if(beforeKey&&k>=beforeKey)continue;const it=S.workouts[k].items.find(i=>i.exId===exId);if(it&&it.sets.length){const done=it.sets.filter(s=>s.done);const src=done.length?done:it.sets;return {date:k,sets:src.map(s=>copySet(s)),restSec:it.restSec};}}
+  for(const k of ds){if(beforeKey&&k>=beforeKey)continue;const it=S.workouts[k].items.find(i=>i.exId===exId);if(it&&it.sets.length){const done=it.sets.filter(s=>s.done);const src=done.length?done:it.sets;return {date:k,sets:src.map(s=>copySet(s))};}}
   return null;
 }
 function lastDoneMap(){const m={};sortedDates().forEach(k=>S.workouts[k].items.forEach(it=>{if(it.sets.some(s=>s.done))m[it.exId]=k;}));return m;}
 function blankSets(n){return Array.from({length:n},()=>({kg:'',reps:'',done:false,warm:false,type:''}));}
-function ensureWorkout(k){if(!S.workouts[k])S.workouts[k]={date:k,startedAt:Date.now(),finishedAt:null,items:[]};return S.workouts[k];}
-function makeItem(exId,sets,restSec){return {id:uid(),exId,sets:sets||blankSets(3),restSec:restSec==null?null:restSec,memo:''};}
-function addExercises(k,ids){const w=ensureWorkout(k);ids.forEach(id=>{const lr=lastRecord(id,k);w.items.push(makeItem(id,lr?lr.sets:blankSets(3),lr?lr.restSec:null));});save();}
-function loadRoutine(k,r){const w=ensureWorkout(k);r.items.forEach(ri=>{const lr=S.settings.routineFill==='last'?lastRecord(ri.exId,k):null;const sets=lr?lr.sets:ri.sets.map(s=>copySet(s));w.items.push(makeItem(ri.exId,sets.length?sets:blankSets(3),lr?lr.restSec:null));});r.lastUsed=k;save();}
-function loadDay(k,src){const w=ensureWorkout(k);src.items.forEach(it=>w.items.push(makeItem(it.exId,it.sets.map(s=>copySet(s)),it.restSec)));save();}
+function ensureWorkout(k){if(!S.workouts[k])S.workouts[k]={date:k,startedAt:null,finishedAt:null,durationMs:null,resumedAt:null,items:[]};return S.workouts[k];}
+function makeItem(exId,sets){return {id:uid(),exId,sets:sets||blankSets(3),memo:''};}
+function addExercises(k,ids){const w=ensureWorkout(k);ids.forEach(id=>{const lr=lastRecord(id,k);w.items.push(makeItem(id,lr?lr.sets:blankSets(3)));});save();}
+function loadRoutine(k,r){const w=ensureWorkout(k);r.items.forEach(ri=>{const lr=S.settings.routineFill==='last'?lastRecord(ri.exId,k):null;const sets=lr?lr.sets:ri.sets.map(s=>copySet(s));w.items.push(makeItem(ri.exId,sets.length?sets:blankSets(3)));});r.lastUsed=k;save();}
+function loadDay(k,src){const w=ensureWorkout(k);src.items.forEach(it=>w.items.push(makeItem(it.exId,it.sets.map(s=>copySet(s)))));save();}
 function e1rm(kg,reps){return reps<=1?kg:kg*(1+reps/30);}
 /* 종목 최고 추정 1RM (해당 날짜 이전 기록 기준). 없으면 0 */
 function bestE1rm(exId,beforeKey){const s=sessionsOf(exId,beforeKey);return s.length?Math.max(...s.map(x=>x.e1rm)):0;}
@@ -545,7 +535,6 @@ const I={
   more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   minus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>',
-  timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6M12 2v3"/></svg>',
   star:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>',
   search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
@@ -602,12 +591,14 @@ function topbar(title,left,right){
 
 /* ---- today ---- */
 function renderToday(){
-  const k=V.date,w=S.workouts[k],hasItems=w&&w.items.length;
+  const k=V.date,w=S.workouts[k],hasItems=w&&(w.items.length||workoutDuration(w)!=null);
   const left=`<button class="iconbtn" data-act="day-prev" aria-label="이전 날">${I.prev}</button>`;
   const right=`<button class="iconbtn" data-act="day-next" aria-label="다음 날">${I.next}</button>`+(hasItems?`<button class="iconbtn" data-act="day-menu" aria-label="메뉴">${I.more}</button>`:'');
   const titleHtml=`<button class="date-btn" data-act="open-cal" aria-label="달력 펼치기/접기"><span>${fmtDay(k)}</span>${I.chev}</button>`+(k===todayKey()?'':`<button class="badge tap" data-act="go-today" title="오늘로 이동">${ago(k)} · 오늘로</button>`);
   let html=topbar(titleHtml,left,right);
   html+='<div class="page">'+renderCal();
+  const active=Object.values(S.workouts).find(x=>x.resumedAt&&x.date!==k);
+  if(active)html+=`<button class="btn block" data-act="pick-day" data-date="${active.date}">${fmtDay(active.date)} 운동 진행 중 · 돌아가기</button>`;
   if(!hasItems){
     const last=sortedDates().filter(d=>d<k).pop(),isToday=k===todayKey(),past=k<todayKey();
     html+=`<div class="empty">${I.dumbbell}<h2>${isToday?'오늘 운동을 시작해 볼까요?':past?fmtDay(k)+'은 쉬었어요':fmtDay(k)+' 운동을 미리 짜 둘까요?'}</h2>
@@ -654,15 +645,16 @@ function renderCal(){
 /* 하루 요약 카드: 2×2 타일(운동 시간 · 운동 개수 · 전체 볼륨 · 세트 완료) + 하루 메모.
    운동을 완료한 날은 카드를 접고 여기에 수행 운동 정보(종목별 세트·볼륨)를 읽기 전용으로 보여준다 */
 function renderDaySummary(w,k){
-  const sc=daySetCount(w),dur=dayDuration(w),live=!w.finishedAt&&k===todayKey()&&sc.done>0;
+  const sc=daySetCount(w),dur=workoutDuration(w),live=!!w.resumedAt;
   const prs=w.items.filter(it=>isItemPR(it,k)).length;
-  let h=`<div class="card"><div class="sum-h"><h2>${w.finishedAt?'운동 요약':'오늘의 운동'}${prs?` <span class="badge pr" style="margin-left:4px">PR ${prs}</span>`:''}${w.sample?' <span class="badge">샘플</span>':''}</h2><span class="p">${[partsOf(w).join(' · '),w.finishedAt&&dur!=null?fmtTime(w.startedAt)+'–'+fmtTime(w.finishedAt):''].filter(Boolean).join(' · ')}</span></div>
+  let h=`<div class="card"><div class="sum-h"><h2>${w.finishedAt?'운동 요약':'오늘의 운동'}${prs?` <span class="badge pr" style="margin-left:4px">PR ${prs}</span>`:''}${w.sample?' <span class="badge">샘플</span>':''}</h2><span class="p">${partsOf(w).join(' · ')}</span></div>
     <div class="tiles">
-      <div class="tile c1">${I.clock}<div><div class="v num" id="daytime" ${live?'data-live="1"':''}>${dur!=null?fmtDur(dur):'–'}</div><div class="l">${live?'운동 중':'운동 시간'}</div></div></div>
+      <div class="tile c1">${I.clock}<div><div class="v num" id="workout-duration" role="timer" aria-label="전체 운동 시간">${fmtDuration(dur)}</div><div class="l">${live?'운동 중':'전체 운동 시간'}</div></div></div>
       <div class="tile c2">${I.dumbbell}<div><div class="v num">${w.items.length}<small>개</small></div><div class="l">운동 개수</div></div></div>
       <div class="tile c3">${I.plate}<div><div class="v num" id="dayvol">${dayVolText(w)||'–'}</div><div class="l">전체 볼륨</div></div></div>
       <div class="tile c4">${I.check}<div><div class="v num"><span id="daysets">${sc.done}/${sc.total}</span></div><div class="l">본세트 완료</div></div></div>
     </div>
+    ${renderSession(w,k)}
     <textarea class="dnote" rows="1" placeholder="오늘 운동 후기를 남겨보세요" data-dnote="${k}">${esc(w.note)}</textarea>`;
   if(w.finishedAt){
     h+=`<div class="sec-h" style="margin-top:14px">수행 운동 정보</div><div class="sl">`+w.items.map((it,i)=>{
@@ -686,13 +678,12 @@ function setInputs(M,s,im,kgAttr,rpAttr,j,cls){
   return inp(kgAttr,M.col[0],M.ph[0],s.kg,M.cols[0])+inp(rpAttr,M.col[1],M.ph[1],s.reps,M.cols[1]);
 }
 function renderItem(it,i){
-  const ex=exById(it.exId),mode=modeOf(ex),M=MODES[mode],rest=restOf(it),prevRec=lastRecord(it.exId,V.date),im=inputMode(),met=itemMetric(it);
+  const ex=exById(it.exId),mode=modeOf(ex),M=MODES[mode],prevRec=lastRecord(it.exId,V.date),im=inputMode(),met=itemMetric(it);
   let h=`<section class="card ex" data-item="${it.id}"><div class="ex-head"><span class="ex-idx">${i+1}</span>${thumb(ex,'sm')}
     <div class="grow ex-title"><span class="part">${esc(ex.part)}</span><span>${esc(ex.name)}</span><span class="badge pr" data-pr="${it.id}" ${isItemPR(it,V.date)?'':'hidden'}>PR</span></div>
     ${hasImg(ex)?`<button class="iconbtn" data-act="ex-info" data-id="${ex.id}" aria-label="운동 정보">${I.info}</button>`:''}<button class="iconbtn" data-act="item-menu" aria-label="운동 메뉴">${I.more}</button></div>
-    <div class="ex-meta">${met?`<span>${met.label} <b class="num" data-vol="${it.id}">${met.value}</b></span><span class="sep"></span>`:''}
-    <button data-act="rest" class="${rest>0?'on':''}">${I.timer}<span>${rest>0?rest+'초':'OFF'}</span></button>
-    ${prevRec?`<span class="sep"></span><span>지난번 <b class="num">${lastSummary(it.exId,V.date).replace(/^\d+세트 · /,'')}</b> <span class="muted">(${ago(prevRec.date)})</span></span>`:''}</div>
+    <div class="ex-meta">${met?`<span>${met.label} <b class="num" data-vol="${it.id}">${met.value}</b></span>`:''}
+    ${prevRec?`${met?'<span class="sep"></span>':''}<span>지난번 <b class="num">${lastSummary(it.exId,V.date).replace(/^\d+세트 · /,'')}</b> <span class="muted">(${ago(prevRec.date)})</span></span>`:''}</div>
     <textarea class="memo" rows="1" placeholder="메모" data-memo="${it.id}">${esc(it.memo)}</textarea>
     <div class="ex-tools"><button data-act="item-load-last" ${prevRec?'':'disabled'}>${I.reload}지난 기록 불러오기</button></div>
     <div class="sets ${mode}"><span class="h">세트</span>${M.cols.map(c=>`<span class="h">${c}</span>`).join('')}<span class="h">완료</span>`;
@@ -817,12 +808,8 @@ function barChart(wk){
 function renderSettings(){
   const s=S.settings,customs=S.exercises.filter(e=>e.custom),hasSample=Object.values(S.workouts).some(w=>w.sample);
   let h=topbar('설정')+'<div class="page">';
-  h+=`<div class="card"><div class="field"><label>휴식 타이머 · 화면</label></div>
-    <div class="set-row"><div><div class="t">기본 휴식 시간</div><div class="d">종목별로 따로 바꿀 수 있어요</div></div><span class="seg">${[60,90,120,180].map(v=>`<button data-act="set-rest" data-v="${v}" class="${s.restSec===v?'on':''}">${v}초</button>`).join('')}</span></div>
-    <div class="set-row"><div><div class="t">세트 완료 시 자동 시작</div></div><button class="switch ${s.autoTimer?'on':''}" data-act="toggle" data-k="autoTimer" role="switch" aria-checked="${s.autoTimer}"></button></div>
-    <div class="set-row"><div><div class="t">종료 알림음</div></div><button class="switch ${s.sound?'on':''}" data-act="toggle" data-k="sound" role="switch" aria-checked="${s.sound}"></button></div>
-    <div class="set-row"><div><div class="t">진동</div><div class="d">지원하는 기기에서만 동작</div></div><button class="switch ${s.vibrate?'on':''}" data-act="toggle" data-k="vibrate" role="switch" aria-checked="${s.vibrate}"></button></div>
-    <div class="set-row"><div><div class="t">운동 중 화면 켜짐 유지</div><div class="d">오늘 탭에서 화면이 자동으로 꺼지지 않게 함</div></div><button class="switch ${s.wakeLock?'on':''}" data-act="toggle" data-k="wakeLock" role="switch" aria-checked="${s.wakeLock}"></button></div></div>`;
+  h+=`<div class="card"><div class="field"><label>화면</label></div>
+    <div class="set-row"><div><div class="t">운동 중 화면 켜짐 유지</div><div class="d">운동 시간을 측정하는 동안 화면이 자동으로 꺼지지 않게 함</div></div><button class="switch ${s.wakeLock?'on':''}" data-act="toggle" data-k="wakeLock" role="switch" aria-checked="${s.wakeLock}"></button></div></div>`;
   h+=`<div class="card"><div class="field"><label>세트 입력</label></div>
     <div class="set-row"><div><div class="t">앱 키패드로 입력</div><div class="d">±버튼·이전/다음이 있는 큰 키패드. 끄면 기기 키보드 사용</div></div><button class="switch ${s.keypad?'on':''}" data-act="toggle" data-k="keypad" role="switch" aria-checked="${s.keypad}"></button></div>
     <div class="set-row"><div><div class="t">바벨 봉 무게</div><div class="d">세트 옵션의 원판 계산에 사용</div></div><span class="seg">${[20,15,10].map(v=>`<button data-act="set-bar" data-v="${v}" class="${s.barKg===v?'on':''}">${v}kg</button>`).join('')}</span></div></div>`;
@@ -959,14 +946,6 @@ function menuBox(title,items){
     // 히스토리를 건드리지 않고 비운 뒤 실행 → 다음 동작이 모달을 열면 history.back()의 popstate가 새 모달을 닫아버리는 문제 방지
     $('#modal').innerHTML='';items[+b.dataset.mi].fn();syncHistory();};});
 }
-function restBox(it){
-  const cur=restOf(it);const opts=[0,60,90,120,150,180];
-  modal(`<h3>휴식 시간 · ${esc(exById(it.exId).name)}</h3><p>세트 완료를 누르면 이 시간만큼 타이머가 돌아요.</p><div class="opts">${opts.map(v=>`<button data-rv="${v}" class="${cur===v?'on':''}">${v?v+'초':'OFF'}</button>`).join('')}</div>
-    <div class="field"><label>직접 입력 (초)</label><input type="number" inputmode="numeric" id="rest-custom" value="${cur}"></div>
-    <div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" id="rest-ok">적용</button></div>`);
-  document.querySelectorAll('[data-rv]').forEach(b=>{b.onclick=()=>{$('#rest-custom').value=b.dataset.rv;document.querySelectorAll('[data-rv]').forEach(x=>x.classList.toggle('on',x===b));};});
-  $('#rest-ok').onclick=()=>{const v=Math.max(0,Math.round(num($('#rest-custom').value)));it.restSec=v;save();closeModal();render();};
-}
 /* 세트 옵션 시트: 세트 타입(일반/웜업/드롭/실패), 운동 강도(세트·종목 1RM), RPE, 바벨 원판 계산.
    ctx={ex,sets,j,full,beforeKey,onChange}. full=false(루틴 편집)면 타입만. 바뀔 때마다 onChange 호출 */
 function setOptionsBox(ctx){
@@ -1049,33 +1028,78 @@ function importBox(){
     S=d;normalize();save();closeModal();V.tab='today';render();toast('가져왔어요');};
 }
 
-/* ===================== rest timer & wake lock ===================== */
-const T={endAt:0,total:0,over:false};
-let audioCtx=null,wakeLock=null;
+/* ===================== workout duration & wake lock ===================== */
+// durationMs is accumulated time; resumedAt is the current segment's wall-clock start.
+// Persist timestamps rather than ticks so reloads and background suspension keep accurate time.
+function normalizeDuration(w){
+  const validTs=v=>Number.isFinite(v)&&v>0;
+  if(!validTs(w.startedAt))w.startedAt=null;
+  if(!validTs(w.finishedAt))w.finishedAt=null;
+  if(!Object.prototype.hasOwnProperty.call(w,'durationMs')){
+    // Old versions started timing when a routine was prepared. Only completed records
+    // with timestamps on the workout date can be migrated without inventing a duration.
+    w.durationMs=w.startedAt&&w.finishedAt>w.startedAt&&dkey(new Date(w.startedAt))===w.date?w.finishedAt-w.startedAt:null;
+    w.resumedAt=null;
+    if(!w.finishedAt)w.startedAt=null;
+  }
+  if(w.durationMs!=null&&(!Number.isFinite(w.durationMs)||w.durationMs<0))w.durationMs=null;
+  if(!validTs(w.resumedAt)||w.finishedAt)w.resumedAt=null;
+  if(w.resumedAt){if(!w.startedAt)w.startedAt=w.resumedAt;if(w.durationMs==null)w.durationMs=0;}
+}
+function workoutDuration(w,now=Date.now()){
+  if(w.durationMs==null&&!w.resumedAt)return null;
+  return (w.durationMs||0)+(w.resumedAt?Math.max(0,now-w.resumedAt):0);
+}
+function fmtDuration(ms){
+  if(ms==null)return '미기록';
+  const sec=Math.floor(ms/1000),h=Math.floor(sec/3600);
+  return (h?pad(h)+':':'')+pad(Math.floor(sec/60)%60)+':'+pad(sec%60);
+}
+function startSession(w,now=Date.now()){
+  if(w.resumedAt||w.finishedAt)return false;
+  const active=Object.values(S.workouts).find(x=>x!==w&&x.resumedAt);
+  if(active){toast(fmtDay(active.date)+' 운동이 진행 중이에요. 먼저 완료하거나 일시정지하세요');return false;}
+  if(!w.startedAt)w.startedAt=now;
+  if(w.durationMs==null)w.durationMs=0;
+  w.resumedAt=now;return true;
+}
+function pauseSession(w,now=Date.now()){
+  if(!w.resumedAt)return;
+  w.durationMs=workoutDuration(w,now);w.resumedAt=null;
+}
+function renderSession(w,k){
+  const running=!!w.resumedAt,measured=workoutDuration(w)!=null,canStart=k===todayKey()||!!w.startedAt;
+  const status=w.finishedAt?'완료':running?'진행 중':measured?'일시정지':'시작 전';
+  return `<div class="session"><div class="session-foot"><span class="hint">${status}</span><span class="session-controls"><button class="btn ghost sm" data-act="duration-edit">${measured?'시간 수정':'직접 입력'}</button>
+    ${w.finishedAt?'':running?'<button class="btn sm" data-act="session-pause">일시정지</button>':canStart?`<button class="btn primary sm" data-act="session-start">${measured?'계속하기':'운동 시작'}</button>`:''}</span></div></div>`;
+}
+function refreshDuration(){
+  const w=S.workouts[V.date],el=$('#workout-duration');
+  if(el&&w)el.textContent=fmtDuration(workoutDuration(w));
+}
+function durationBox(w){
+  const total=Math.floor((workoutDuration(w)||0)/1000);
+  modal(`<h3>전체 운동 시간</h3><p>운동한 총 시간을 입력하세요. 1시간 10분은 70분으로 입력하면 돼요. 일시정지한 시간은 제외합니다.</p>
+    <div class="row"><div class="field grow"><label for="duration-min">분</label><input id="duration-min" type="number" inputmode="numeric" min="0" step="1" value="${Math.floor(total/60)}"></div><div class="field grow"><label for="duration-sec">초</label><input id="duration-sec" type="number" inputmode="numeric" min="0" max="59" step="1" value="${total%60}"></div></div>
+    <div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" id="duration-ok">저장</button></div>`);
+  $('#duration-ok').onclick=()=>{
+    const m=$('#duration-min').value.trim(),s=$('#duration-sec').value.trim(),minutes=Number(m),seconds=Number(s);
+    if(!m||!s||!Number.isSafeInteger(minutes)||minutes<0||!Number.isInteger(seconds)||seconds<0||seconds>59||!Number.isSafeInteger((minutes*60+seconds)*1000)){toast('분은 0 이상의 정수, 초는 0~59로 입력하세요');return;}
+    w.durationMs=(minutes*60+seconds)*1000;
+    if(w.resumedAt)w.resumedAt=Date.now();
+    flushSave();closeModal();render();toast('운동 시간을 저장했어요');
+  };
+}
+let wakeLock=null;
 async function updateWakeLock(){
   if(!('wakeLock' in navigator))return;
-  const want=!!(S&&S.settings&&S.settings.wakeLock&&V.tab==='today'&&!document.hidden);
+  const want=!!(S&&S.settings&&S.settings.wakeLock&&V.tab==='today'&&S.workouts[V.date]?.resumedAt&&!document.hidden);
   try{
     if(want&&!wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null;});}
     else if(!want&&wakeLock){await wakeLock.release();wakeLock=null;}
   }catch(e){}
 }
-function unlockAudio(){if(!S.settings.sound)return;try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}catch(e){}}
-function beep(){if(!S.settings.sound||!audioCtx)return;try{const t=audioCtx.currentTime;[0,0.18,0.36].forEach(d=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(0.0001,t+d);g.gain.exponentialRampToValueAtTime(0.4,t+d+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d+0.15);o.connect(g).connect(audioCtx.destination);o.start(t+d);o.stop(t+d+0.16);});}catch(e){}}
-function startTimer(sec){T.endAt=Date.now()+sec*1000;T.total=sec;T.over=false;$('#timer').hidden=false;tick();}
-function stopTimer(){T.endAt=0;T.over=false;$('#timer').hidden=true;const ki=$('#keypad .kp-info');if(ki)ki.innerHTML=kpInfoHtml();}
-function tick(){
-  if(!T.endAt)return;
-  const now=Date.now(),left=Math.max(0,Math.ceil((T.endAt-now)/1000));
-  if(left<=0&&!T.over){T.over=true;if(now-T.endAt<5000){beep();if(S.settings.vibrate&&navigator.vibrate)navigator.vibrate([200,100,200]);}}
-  const pct=T.total?Math.max(0,Math.min(100,(T.endAt-now)/(T.total*1000)*100)):0;
-  $('#timer').innerHTML=`<div class="timer-box ${T.over?'over':''}"><div><div class="t">${T.over?'휴식 끝':pad(Math.floor(left/60))+':'+pad(left%60)}</div><div class="lbl">${T.over?'다음 세트 시작!':'휴식 중 · '+T.total+'초'}</div></div><span style="flex:1"></span>
-    ${T.over?'':`<button data-act="t-add">+30초</button>`}<button data-act="t-stop">${T.over?'닫기':'종료'}</button><div class="bar" style="width:${pct}%"></div></div>`;
-  const ki=$('#keypad .kp-info');if(ki&&KP.el)ki.innerHTML=kpInfoHtml();
-}
-setInterval(tick,500);
-/* 요약 타일의 '운동 중' 경과 시간은 분 단위라 20초마다만 갱신 */
-setInterval(()=>{const el=$('#daytime');if(!el||!el.dataset.live)return;const w=S.workouts[V.date];if(!w||w.finishedAt)return;const m=dayDuration(w);el.textContent=m==null?'–':fmtDur(m);},20000);
+setInterval(()=>{if(!document.hidden)refreshDuration();},1000);
 
 /* ===================== in-app keypad ===================== */
 /* 세트 입력칸(.sets input)은 설정의 keypad 가 켜져 있으면 inputmode=none 으로 시스템 키보드를 막고,
@@ -1094,7 +1118,7 @@ function showKeypad(el){
 function hideKeypad(){
   if(!KP.el)return;KP.el=null;
   $('#keypad').hidden=true;document.body.classList.remove('has-keypad');
-  tick();
+  refreshDuration();
 }
 function renderKeypad(){
   const el=KP.el;if(!el)return;
@@ -1109,7 +1133,6 @@ function renderKeypad(){
   $('#keypad').hidden=false;
 }
 function kpInfoHtml(){
-  if(T.endAt){const left=Math.max(0,Math.ceil((T.endAt-Date.now())/1000));return T.over?'휴식 끝 · <b style="color:var(--good)">다음 세트!</b>':`휴식 <b>${pad(Math.floor(left/60))}:${pad(left%60)}</b>`;}
   return esc(KP.el?KP.el.getAttribute('aria-label')||'':'');
 }
 function kpSet(val){const el=KP.el;if(!el)return;el.value=cleanNum(val);el.dispatchEvent(new Event('input',{bubbles:true}));}
@@ -1150,9 +1173,9 @@ function makeSample(){
   const t=todayKey();let p=0;
   for(let d=27;d>=1;d--){const k=addDays(t,-d);const dow=parse(k).getDay();if(dow===0||dow===3)continue;
     const plan=plans[p%3];const wk=Math.floor((27-d)/7);p++;
-    const w={date:k,startedAt:parse(k).getTime()+19*3600000,finishedAt:parse(k).getTime()+20*3600000+10*60000,items:[],sample:true};
+    const w={date:k,startedAt:parse(k).getTime()+19*3600000,finishedAt:parse(k).getTime()+20*3600000+10*60000,durationMs:70*60000,resumedAt:null,items:[],sample:true};
     plan[1].forEach(ex=>{const id=find(ex[0]);const bump=modeOf(exById(id))==='weight'?(wk*2.5):0;
-      w.items.push({id:uid(),exId:id,restSec:null,memo:'',sets:ex[1].map(s=>({kg:s[0]?s[0]+bump:s[0],reps:s[1],done:true,warm:false}))});});
+      w.items.push({id:uid(),exId:id,memo:'',sets:ex[1].map(s=>({kg:s[0]?s[0]+bump:s[0],reps:s[1],done:true,warm:false}))});});
     S.workouts[k]=w;}
   ['랫풀다운','시티드 케이블 로우','케이블 풀오버','바벨 컬','레그 프레스','레그 익스텐션','벤치 프레스','사이드 레터럴 레이즈'].forEach(n=>{S.exercises.find(e=>e.name===n).bookmark=true;});
   plans.forEach(pl=>S.routines.push({id:uid(),name:pl[0]+' (샘플)',createdAt:Date.now(),lastUsed:null,items:pl[1].map(ex=>({exId:find(ex[0]),sets:ex[1].map(s=>({kg:s[0],reps:s[1],warm:false}))}))}));
@@ -1283,16 +1306,13 @@ document.addEventListener('click',e=>{
   const itemEl=b.closest('[data-item]');const it=itemEl&&w?w.items.find(x=>x.id===itemEl.dataset.item):null;
   if(b.dataset.setopt!=null&&it){setOptionsBox({ex:exById(it.exId),sets:it.sets,j:+b.dataset.setopt,full:true,beforeKey:V.date,onChange:()=>{save();render();}});return;}
   if(b.dataset.rsetopt!=null&&RE){const i=+b.closest('[data-ri]').dataset.ri,ri=RE.items[i];setOptionsBox({ex:exById(ri.exId),sets:ri.sets,j:+b.dataset.rsetopt,full:false,onChange:()=>renderRoutineEditor()});return;}
-  if(b.dataset.done!=null&&it){unlockAudio();const j=+b.dataset.done,s=it.sets[j];const ex=exById(it.exId);
+  if(b.dataset.done!=null&&it){const j=+b.dataset.done,s=it.sets[j];const ex=exById(it.exId);
     if(!s.done){
       const empty=modeOf(ex)==='reps'?s.reps==='':(s.kg===''&&s.reps==='');
       if(empty&&j>0){s.kg=it.sets[j-1].kg;s.reps=it.sets[j-1].reps;}
-      const hadAnyDone=w.items.some(x=>x.sets.some(y=>y.done));
-      if(!hadAnyDone&&V.date===todayKey()&&Date.now()-w.startedAt>900000)w.startedAt=Date.now();
       const wasPR=isItemPR(it,V.date);
       s.done=true;
       if(!wasPR&&!s.warm&&isItemPR(it,V.date))toast('🎉 최고 기록 경신! ('+ex.name+')');
-      const r=restOf(it);if(S.settings.autoTimer&&r>0)startTimer(r);
     }else{s.done=false;}
     save();render();return;}
   const act=b.dataset.act,v=b.dataset.v;
@@ -1305,26 +1325,24 @@ document.addEventListener('click',e=>{
     case 'pick-day':goDate(b.dataset.date);render();break;
     case 'open-picker':if(w&&w.finishedAt){w.finishedAt=null;save();}openPicker('day',v?{tab:v}:null);break;
     case 'sample':confirmBox('샘플 데이터 넣기','최근 4주치 가상 기록과 루틴 3개가 추가돼요. 설정에서 언제든 지울 수 있어요.','넣기',()=>{makeSample();render();toast('샘플 데이터를 넣었어요');});break;
-    case 'finish':if(!w)break;if(w.finishedAt){w.finishedAt=null;}else{
-      // 지난 날짜를 다시 완료하면 운동 시간을 알 수 없으니 startedAt 과 같게 두어 '–' 로 보이게 한다
-      w.finishedAt=V.date===todayKey()?Date.now():(w.startedAt||Date.now());stopTimer();toast(hasWeightItem(w)?'수고했어요! '+fmtKg(dayVolume(w))+' 들었어요':'수고했어요!');window.scrollTo(0,0);}save();render();break;
+    case 'session-start':if(w&&(V.date===todayKey()||w.startedAt)&&startSession(w)){flushSave();render();}break;
+    case 'session-pause':if(w){pauseSession(w);flushSave();render();}break;
+    case 'duration-edit':if(w)durationBox(w);break;
+    case 'finish':if(!w)break;if(w.finishedAt){w.finishedAt=null;}else{pauseSession(w);w.finishedAt=Date.now();toast('수고했어요! '+(w.durationMs!=null?fmtDuration(w.durationMs)+' · ':'')+(hasWeightItem(w)?fmtKg(dayVolume(w))+' 들었어요':'운동을 마쳤어요'));window.scrollTo(0,0);}flushSave();render();break;
     case 'day-menu':menuBox(fmtDay(V.date),[
       {label:'루틴으로 저장',icon:I.tabRoutine,fn:()=>saveRoutineBox(w)},
-      {label:'이 날 기록 전체 삭제',icon:I.trash,danger:true,fn:()=>confirmBox('기록 삭제',fmtDay(V.date)+' 운동 기록을 모두 지울까요?','삭제',()=>{delete S.workouts[V.date];stopTimer();save();render();},true)}]);break;
+      {label:'이 날 기록 전체 삭제',icon:I.trash,danger:true,fn:()=>confirmBox('기록 삭제',fmtDay(V.date)+' 운동 기록을 모두 지울까요?','삭제',()=>{delete S.workouts[V.date];save();render();},true)}]);break;
     case 'item-menu':if(!it)break;{const i=w.items.indexOf(it);menuBox(exById(it.exId).name,[
       {label:'위로 이동',icon:I.up,fn:()=>{if(i>0){w.items.splice(i,1);w.items.splice(i-1,0,it);save();render();}}},
       {label:'아래로 이동',icon:I.down,fn:()=>{if(i<w.items.length-1){w.items.splice(i,1);w.items.splice(i+1,0,it);save();render();}}},
       {label:'다른 운동으로 교체',icon:I.swap,fn:()=>openPicker('replace',{replaceId:it.id})},
       ...(exById(it.exId).custom?[{label:'운동 정보 수정 (부위·기록 방식)',icon:I.edit,fn:()=>customExBox(exById(it.exId))}]:[]),
       {label:'운동 삭제',icon:I.trash,danger:true,fn:()=>{w.items.splice(i,1);save();render();}}]);}break;
-    case 'rest':if(it)restBox(it);break;
     case 'item-load-last':if(it){const lr=lastRecord(it.exId,V.date);if(!lr){toast('지난 기록이 없어요');break;}
-      const apply=()=>{it.sets=lr.sets.map(s=>copySet(s));if(lr.restSec!=null)it.restSec=lr.restSec;save();render();toast(fmtDay(lr.date)+' 기록을 불러왔어요');};
+      const apply=()=>{it.sets=lr.sets.map(s=>copySet(s));save();render();toast(fmtDay(lr.date)+' 기록을 불러왔어요');};
       if(it.sets.some(s=>s.done))confirmBox('지난 기록 불러오기',fmtDay(lr.date)+' 기록으로 세트를 바꿀까요? 완료 체크는 풀려요.','불러오기',apply);else apply();}break;
     case 'set-add':if(it){const l=it.sets[it.sets.length-1];it.sets.push({kg:l?l.kg:'',reps:l?l.reps:'',done:false,warm:false,type:''});save();render();}break;
     case 'set-del':if(it&&it.sets.length>1){it.sets.pop();save();render();}break;
-    case 't-add':T.endAt+=30000;T.total+=30;tick();break;
-    case 't-stop':stopTimer();break;
     /* picker */
     case 'picker-close':closePicker();break;
     case 'picker-tab':P.tab=v;renderPicker();break;
@@ -1335,7 +1353,7 @@ document.addEventListener('click',e=>{
     case 'bookmark':{e.stopPropagation();const ex=exById(b.dataset.id);ex.bookmark=!ex.bookmark;save();renderPicker();}break;
     case 'picker-confirm':{
       if(P.mode==='day'){const n=P.selected.length;addExercises(V.date,P.selected);closePicker();render();toast(n+'개 운동을 추가했어요');}
-      else if(P.mode==='replace'){const id=P.selected[0];const tgt=w.items.find(x=>x.id===P.replaceId);if(tgt){const lr=lastRecord(id,V.date);tgt.exId=id;tgt.sets=lr?lr.sets:blankSets(tgt.sets.length);tgt.restSec=lr?lr.restSec:null;save();}closePicker();render();}
+      else if(P.mode==='replace'){const id=P.selected[0];const tgt=w.items.find(x=>x.id===P.replaceId);if(tgt){const lr=lastRecord(id,V.date);tgt.exId=id;tgt.sets=lr?lr.sets:blankSets(tgt.sets.length);save();}closePicker();render();}
       else if(P.mode==='rreplace'){const id=P.selected[0],i=P.replaceIdx,ri=RE.items[i];if(ri){const lr=lastRecord(id);ri.exId=id;ri.sets=lr?lr.sets.map(s=>copySet(s)):blankSets(ri.sets.length);}P=null;$('#overlay').innerHTML='';RE.scrollTo=i;renderRoutineEditor();}
       else if(P.mode==='routine'){const first=RE.items.length;P.selected.forEach(id=>{const lr=lastRecord(id);RE.items.push({exId:id,sets:lr?lr.sets.map(s=>({kg:s.kg,reps:s.reps,warm:!!s.warm})):[{kg:'',reps:'',warm:false},{kg:'',reps:'',warm:false},{kg:'',reps:'',warm:false}]});});P=null;RE.scrollTo=first;renderRoutineEditor();}
     }break;
@@ -1367,7 +1385,6 @@ document.addEventListener('click',e=>{
       const idx=S.routines.findIndex(x=>x.id===RE.id);const clean={id:RE.id,name:RE.name,createdAt:RE.createdAt,lastUsed:RE.lastUsed,items:RE.items};
       if(idx>=0)S.routines[idx]=clean;else S.routines.unshift(clean);RE=null;$('#overlay').innerHTML='';syncHistory();save();V.tab='routines';render();toast('루틴을 저장했어요');}break;
     /* settings */
-    case 'set-rest':S.settings.restSec=+v;save();render();break;
     case 'set-fill':S.settings.routineFill=v;save();render();break;
     case 'set-bar':S.settings.barKg=+v;save();render();break;
     case 'toggle':S.settings[b.dataset.k]=!S.settings[b.dataset.k];save();render();break;
@@ -1375,7 +1392,7 @@ document.addEventListener('click',e=>{
     case 'export':exportBox();break;
     case 'import':importBox();break;
     case 'sample-del':confirmBox('샘플 데이터 삭제','샘플로 표시된 기록과 "(샘플)" 루틴을 지울까요?','삭제',()=>{Object.keys(S.workouts).forEach(k=>{if(S.workouts[k].sample)delete S.workouts[k];});S.routines=S.routines.filter(r=>!/\(샘플\)$/.test(r.name));save();render();},true);break;
-    case 'wipe':confirmBox('모든 기록 삭제','운동 기록, 루틴, 사용자 운동이 모두 지워져요. 되돌릴 수 없어요.','전체 삭제',()=>{try{localStorage.removeItem(KEY);}catch(e){}S=null;load();persist();markLocalChanges();stopTimer();V.tab='today';render();toast('모두 지웠어요');},true);break;
+    case 'wipe':confirmBox('모든 기록 삭제','운동 기록, 루틴, 사용자 운동이 모두 지워져요. 되돌릴 수 없어요.','전체 삭제',()=>{try{localStorage.removeItem(KEY);}catch(e){}S=null;load();persist();markLocalChanges();V.tab='today';render();toast('모두 지웠어요');},true);break;
     /* sync */
     case 'sync-connect':{const u=($('#sb-url').value||'').trim().replace(/\/+$/,''),a=($('#sb-anon').value||'').trim();if(!/^https:\/\/.+/.test(u)||a.length<20){toast('URL과 anon key를 확인하세요');break;}C.url=u;C.anon=a;C.last={};saveSync();initClient();render();}break;
     case 'sync-disconnect':confirmBox('연결 해제','서버 연결 정보를 지울까요? 이 기기의 기록은 그대로 남아요.','해제',async()=>{try{if(sb)await sb.auth.signOut();}catch(e){}C.url='';C.anon='';C.last={};sb=null;syncUser=null;C.status='off';saveSync();render();});break;
@@ -1400,7 +1417,8 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{if(e.target.dataset.act==='stat-ex'){V.statEx=e.target.value;render();}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('.sets input')){e.preventDefault();const inputs=[...document.querySelectorAll('.sets input')];const i=inputs.indexOf(e.target);if(i>=0&&i<inputs.length-1)inputs[i+1].focus();else e.target.blur();}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();updateWakeLock();if(Date.now()-lastSyncTick>30000)sync();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(saveT)flushSave();}else{refreshDuration();if(Date.now()-lastSyncTick>30000)sync();}updateWakeLock();});
+window.addEventListener('pagehide',()=>{if(saveT)flushSave();});
 window.addEventListener('online',()=>sync());
 
 /* ===================== boot ===================== */

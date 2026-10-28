@@ -62,7 +62,7 @@ out = head + head_part + "</head>\n<body>\n" + body_part + tail
 (DIST / "manifest.webmanifest").write_text("""{
   "name": "리프트로그",
   "short_name": "리프트로그",
-  "description": "헬스 운동 기록 — 세트별 무게·횟수, 루틴, 휴식 타이머, 분석",
+  "description": "헬스 운동 기록 — 세트별 무게·횟수, 루틴, 전체 운동 시간, 분석",
   "lang": "ko",
   "start_url": "./index.html",
   "scope": "./",
