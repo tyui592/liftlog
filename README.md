@@ -26,7 +26,7 @@ gymlog/
 
 | # | 기능 | 위치 |
 |---|------|------|
-| 1 | 운동 라이브러리 (부위별 58개 기본 운동, 초성/한글 검색, 북마크, 최근 운동순 정렬) | 운동 추가 → 직접 추가 |
+| 1 | 운동 라이브러리 (부위별 120개 기본 운동, 초성/한글 검색, 북마크, 최근 운동순 정렬) | 운동 추가 → 직접 추가 |
 | 2 | 사용자 정의 운동 추가/수정/삭제 (무게×횟수 / 횟수만(맨몸) / 시간(분) 선택) | 직접 추가의 `+` / 설정 |
 | 3 | 세트 추가/삭제, 세트별 완료 체크, 세트 옵션 시트(세트 번호 탭): 세트 타입(일반/`W`웜업/`D`드롭/`F`실패), RPE, 운동 강도(세트·종목 추정 1RM 대비 %), 바벨 원판 계산 | 오늘 / 루틴 편집 |
 | 4 | 완료된 본세트 기준 종목 볼륨 / 전체 볼륨 자동 계산 | 오늘 |
@@ -39,7 +39,7 @@ gymlog/
 | 11 | 분석: 종목별 최고 무게·추정 1RM(Epley) 추이(맨몸 운동은 최다 횟수·총 횟수 추이), 주간 볼륨 8주, 부위별 빈도 4주 | 분석 |
 | 12 | JSON 내보내기/가져오기 | 설정 |
 | 13 | Supabase 클라우드 동기화 (오프라인 우선, 키 단위 last-write-wins, 초기 로그인 시 로컬 커스텀 항목 병합) | 설정 |
-| 14 | 운동 사진: 목록·카드 썸네일, 탭하면 시작/끝 자세 보기 (기본 운동 57개, 오프라인 캐시 지원) | 운동 추가 / 오늘 |
+| 14 | 운동 아이콘: 목록·카드에 동작·기구 SVG 픽토그램, 탭하면 확대 아이콘과 기록 방식 확인. 기존 운동 57개는 시작/끝 자세 사진도 제공 (아이콘은 오프라인 즉시 표시) | 운동 추가 / 오늘 |
 | 15 | 세트 입력 키패드: 시스템 키보드 대신 앱 키패드(±2.5/±5kg, ±1/±5회, 위 세트 값 복사, 이전/다음). 설정에서 끄면 기기 키보드 사용 | 오늘 / 루틴 편집 |
 | 16 | 종목별 `지난 기록 불러오기` 버튼 (루틴 값으로 채워진 세트를 마지막 기록으로 교체) | 오늘 |
 | 17 | 하루 요약 카드: 운동 시간(진행 중이면 경과 시간)·운동 개수·전체 볼륨·본세트 완료 타일, PR 개수, 하루 후기 메모. 운동을 완료한 날은 카드를 접고 `수행 운동 정보`(종목별 세트·볼륨·완료 여부) 읽기 전용 목록으로 보여줌 — `다시 열기`로 편집 | 오늘 |
@@ -60,9 +60,17 @@ gymlog/
 
 검증: `python3 build.py` 및 `node --test tests/workout-duration.test.cjs`
 
-## 운동 사진
+## 운동 목록과 아이콘
 
-[free-exercise-db](https://github.com/yuhonas/free-exercise-db)(Unlicense, 퍼블릭 도메인)의 사진을 쓴다. `assets/ex/_source-map.json`이 우리 운동 ID → 원본 슬러그 매핑이다. 새 기본 운동을 추가하면 원본 저장소의 `exercises/<slug>/0.jpg`, `1.jpg`를 받아 썸네일(끝 자세, 정사각 크롭 160px)과 두 프레임(440px)을 WebP로 만들어 `assets/ex/`에 넣는다. 사용자 정의 운동은 사진 없이 부위 글자로 표시된다.
+기본 운동은 120개(하체 27, 가슴 17, 등 19, 어깨 14, 팔 18, 복근 15, 유산소 10)다. [ACE Exercise Library](https://www.acefitness.org/resources/everyone/exercise-library/)와 [Muscle & Strength 운동 라이브러리](https://www.muscleandstrength.com/exercises/all.html)를 참고해 바벨·덤벨·스미스·머신·케이블·맨몸 운동을 확장했다. 기존 `ex000`~`ex056`은 순서·이름·기록 방식을 유지하고, 새 운동 63개를 `ex057`~`ex119`에 추가했다. `normalize()`가 기존 저장·가져오기·동기화 데이터에 없는 기본 운동만 합치므로 기록·루틴·북마크는 유지된다. 신규 친업·맨몸 스쿼트·어시스트 풀업 등은 `reps`(보조 무게는 메모에 기록), 사이드 플랭크·야외 달리기·줄넘기는 `time`으로 기록한다. 기존 가중 풀업·딥스의 방식은 변경하지 않는다.
+
+작은 사진 썸네일 대신 `src/app.html`의 자체 제작 SVG 픽토그램을 쓴다. `SEED`의 네 번째 값은 소스 전용 아이콘 키이고, 고정 운동 ID로 조회하므로 사용자 저장 데이터나 서버 스키마에는 이미지 필드를 추가하지 않는다. 사람은 `--fg`, 기구는 `--accent`, 지지대는 `--muted` 토큰을 사용해 라이트·다크 모드를 따른다. 목록(52px)·카드(40px)·루틴 미리보기(32px)에서 같은 아이콘을 쓰며 외부 요청 없이 오프라인에서도 표시된다. 사용자 정의 운동은 부위별 대표 아이콘으로 표시한다. 아이콘을 누르거나 키보드로 포커스한 뒤 Enter/Space를 누르면 확대 아이콘과 기록 방식을 확인할 수 있다. 아이콘은 동작 식별용으로 단순화한 그림이다.
+
+검증: `python3 build.py` 및 `node --test tests/*.test.cjs` (기존 기록 보존·자동 병합·아이콘과 상세 사진 경로 포함).
+
+### 자세 참고 사진
+
+기존 기본 운동 57개의 상세 보기에는 [free-exercise-db](https://github.com/yuhonas/free-exercise-db)(Unlicense, 퍼블릭 도메인) 사진도 남겨 둔다. `assets/ex/_source-map.json`은 운동 ID → 원본 슬러그 매핑이다. 시작·끝 자세 두 프레임(440px WebP)은 `assets/ex/`에서 빌드 시 `dist/img/`로 복사된다. 신규 운동과 사용자 정의 운동은 확대 아이콘과 기록 방식을 보여주며, 존재하지 않는 사진을 요청하지 않는다.
 
 ## 데이터 구조 (localStorage key `liftlog.v1`)
 
@@ -136,6 +144,22 @@ python3 -m http.server 8000 --directory dist
 ```
 
 `file://`로 직접 열면 서비스워커만 등록되지 않을 뿐 앱 자체는 동작한다.
+
+### Playwright 브라우저 검증
+
+`tests/browser-smoke.cjs`는 임시 로컬 서버와 새 브라우저 컨텍스트로 Chromium·WebKit에서 모바일 라이트/다크 화면 및 기존 데이터 이관·오프라인 재실행(총 6개 시나리오)을 검증한다. 운동 검색·부위 필터·선택 스크롤 보존·아이콘/사진 상세 보기·키보드 접근·세 기록 방식·앱 키패드·저장 후 새로고침·운동 시간·완료/재개·화면 넘침·브라우저 오류를 확인한다. 실제 사용자 프로필을 사용하지 않고 클라우드 설정과 외부 폰트/SDK 요청을 테스트 환경에서 차단하므로 서버 동기화와 실제 기기 Safari 검증은 포함하지 않는다.
+
+앱의 런타임 의존성을 늘리지 않도록 테스트 도구와 브라우저는 임시 폴더에 설치한다:
+
+```bash
+npm install --prefix /tmp/liftlog-playwright @playwright/test@1.64.1
+PLAYWRIGHT_BROWSERS_PATH=/tmp/liftlog-playwright-browsers /tmp/liftlog-playwright/node_modules/.bin/playwright install chromium webkit
+python3 build.py
+NODE_PATH=/tmp/liftlog-playwright/node_modules PLAYWRIGHT_BROWSERS_PATH=/tmp/liftlog-playwright-browsers node tests/browser-smoke.cjs
+```
+
+스크린샷과 `results.json`은 출력된 임시 경로에 저장된다. `LIFTLOG_BROWSER_OUTPUT` 환경 변수로 저장 위치를 지정할 수 있다.
+
 
 ## 주의
 

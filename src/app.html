@@ -280,9 +280,14 @@ body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 .exp-b .li:last-of-type{border-bottom:0}
 .exp-b .li .s{color:var(--muted);font-family:var(--font-num);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 
-/* exercise thumbnails (free-exercise-db, public domain) */
+/* Inline motion pictograms stay sharp at 32–52px and require no image download. */
 .thumb{width:52px;height:52px;border-radius:12px;background:var(--surface-2);flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;font-weight:700;position:relative}
-.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb{color:var(--fg)}
+.thumb .ex-icon{width:100%;height:100%;padding:3px}
+.ex-icon .gear{stroke:var(--accent)}
+.ex-icon .support{stroke:var(--muted);stroke-width:2.5}
+.ex-art-preview{display:flex;justify-content:center;background:var(--surface-2);border-radius:var(--radius);padding:16px}
+.ex-art-preview .ex-icon{width:160px;height:160px}
 .thumb.sm{width:40px;height:40px;border-radius:10px;font-size:11px}
 .thumb.xs{width:32px;height:32px;border-radius:50%;font-size:10px;box-shadow:0 0 0 2px var(--surface)}
 .thumb.tap{cursor:pointer}
@@ -392,13 +397,126 @@ body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 const KEY='liftlog.v1';
 const PARTS=['하체','가슴','등','어깨','팔','복근','유산소'];
 const SEED=[
- ['하체','스쿼트'],['하체','레그 프레스'],['하체','레그 익스텐션'],['하체','레그 컬'],['하체','런지'],['하체','힙 쓰러스트'],['하체','루마니안 데드리프트'],['하체','핵 스쿼트'],['하체','카프 레이즈'],['하체','스플릿 스쿼트'],
- ['가슴','벤치 프레스'],['가슴','인클라인 벤치 프레스'],['가슴','덤벨 벤치 프레스'],['가슴','인클라인 덤벨 프레스'],['가슴','체스트 프레스 머신'],['가슴','펙덱 플라이'],['가슴','케이블 크로스오버'],['가슴','딥스'],['가슴','푸시업'],
- ['등','랫풀다운'],['등','시티드 케이블 로우'],['등','바벨 로우'],['등','덤벨 로우'],['등','풀업'],['등','케이블 풀오버'],['등','티바 로우'],['등','데드리프트'],['등','페이스 풀'],['등','스트레이트 암 풀다운'],
- ['어깨','오버헤드 프레스'],['어깨','덤벨 숄더 프레스'],['어깨','사이드 레터럴 레이즈'],['어깨','프론트 레이즈'],['어깨','리어 델트 플라이'],['어깨','슈러그'],['어깨','케이블 레터럴 레이즈'],
- ['팔','바벨 컬'],['팔','덤벨 컬'],['팔','해머 컬'],['팔','케이블 컬'],['팔','프리처 컬'],['팔','트라이셉스 푸시다운'],['팔','오버헤드 트라이셉스 익스텐션'],['팔','스컬 크러셔'],['팔','클로즈그립 벤치 프레스'],
- ['복근','크런치'],['복근','레그 레이즈'],['복근','행잉 레그 레이즈'],['복근','케이블 크런치'],['복근','플랭크','time'],['복근','러시안 트위스트'],
- ['유산소','러닝머신','time'],['유산소','사이클','time'],['유산소','계단 오르기','time'],['유산소','로잉 머신','time'],['유산소','일립티컬','time'],['유산소','걷기','time']
+ ["하체","스쿼트","weight","squat"],
+ ["하체","레그 프레스","weight","legpress"],
+ ["하체","레그 익스텐션","weight","extension"],
+ ["하체","레그 컬","weight","legcurl"],
+ ["하체","런지","weight","lunge"],
+ ["하체","힙 쓰러스트","weight","bridge"],
+ ["하체","루마니안 데드리프트","weight","hinge"],
+ ["하체","핵 스쿼트","weight","hack"],
+ ["하체","카프 레이즈","weight","calf"],
+ ["하체","스플릿 스쿼트","weight","lunge"],
+ ["가슴","벤치 프레스","weight","bench"],
+ ["가슴","인클라인 벤치 프레스","weight","incline"],
+ ["가슴","덤벨 벤치 프레스","weight","dbbench"],
+ ["가슴","인클라인 덤벨 프레스","weight","dbincline"],
+ ["가슴","체스트 프레스 머신","weight","chestpress"],
+ ["가슴","펙덱 플라이","weight","pecfly"],
+ ["가슴","케이블 크로스오버","weight","cablefly"],
+ ["가슴","딥스","weight","dip"],
+ ["가슴","푸시업","weight","pushup"],
+ ["등","랫풀다운","weight","pulldown"],
+ ["등","시티드 케이블 로우","weight","row"],
+ ["등","바벨 로우","weight","bentrow"],
+ ["등","덤벨 로우","weight","dbrow"],
+ ["등","풀업","weight","pullup"],
+ ["등","케이블 풀오버","weight","pullover"],
+ ["등","티바 로우","weight","tbar"],
+ ["등","데드리프트","weight","deadlift"],
+ ["등","페이스 풀","weight","facepull"],
+ ["등","스트레이트 암 풀다운","weight","pullover"],
+ ["어깨","오버헤드 프레스","weight","press"],
+ ["어깨","덤벨 숄더 프레스","weight","dbpress"],
+ ["어깨","사이드 레터럴 레이즈","weight","lateral"],
+ ["어깨","프론트 레이즈","weight","front"],
+ ["어깨","리어 델트 플라이","weight","rear"],
+ ["어깨","슈러그","weight","shrug"],
+ ["어깨","케이블 레터럴 레이즈","weight","cablelateral"],
+ ["팔","바벨 컬","weight","curl"],
+ ["팔","덤벨 컬","weight","dbcurl"],
+ ["팔","해머 컬","weight","hammer"],
+ ["팔","케이블 컬","weight","cablecurl"],
+ ["팔","프리처 컬","weight","preacher"],
+ ["팔","트라이셉스 푸시다운","weight","pushdown"],
+ ["팔","오버헤드 트라이셉스 익스텐션","weight","overhead"],
+ ["팔","스컬 크러셔","weight","skull"],
+ ["팔","클로즈그립 벤치 프레스","weight","closebench"],
+ ["복근","크런치","weight","crunch"],
+ ["복근","레그 레이즈","weight","legraise"],
+ ["복근","행잉 레그 레이즈","weight","hangraise"],
+ ["복근","케이블 크런치","weight","cablecrunch"],
+ ["복근","플랭크","time","plank"],
+ ["복근","러시안 트위스트","weight","twist"],
+ ["유산소","러닝머신","time","run"],
+ ["유산소","사이클","time","bike"],
+ ["유산소","계단 오르기","time","stairs"],
+ ["유산소","로잉 머신","time","rowing"],
+ ["유산소","일립티컬","time","elliptical"],
+ ["유산소","걷기","time","walk"],
+ ["하체","프론트 스쿼트","weight","frontsquat"],
+ ["하체","고블릿 스쿼트","weight","goblet"],
+ ["하체","스미스 머신 스쿼트","weight","smithsquat"],
+ ["하체","불가리안 스플릿 스쿼트","weight","bulgarian"],
+ ["하체","워킹 런지","weight","lunge"],
+ ["하체","리버스 런지","weight","reverselunge"],
+ ["하체","스텝업","weight","stepup"],
+ ["하체","스모 데드리프트","weight","sumo"],
+ ["하체","덤벨 루마니안 데드리프트","weight","dbhinge"],
+ ["하체","싱글 레그 데드리프트","weight","singlehinge"],
+ ["하체","시티드 레그 컬","weight","seatedcurl"],
+ ["하체","힙 어브덕션 머신","weight","abduction"],
+ ["하체","힙 어덕션 머신","weight","adduction"],
+ ["하체","케이블 킥백","weight","kickback"],
+ ["하체","글루트 브리지","reps","bodybridge"],
+ ["하체","시티드 카프 레이즈","weight","seatedcalf"],
+ ["하체","맨몸 스쿼트","reps","bodysquat"],
+ ["가슴","디클라인 벤치 프레스","weight","decline"],
+ ["가슴","덤벨 플라이","weight","dbfly"],
+ ["가슴","인클라인 덤벨 플라이","weight","inclinefly"],
+ ["가슴","스미스 머신 벤치 프레스","weight","smithbench"],
+ ["가슴","스미스 머신 인클라인 프레스","weight","smithincline"],
+ ["가슴","로우 케이블 플라이","weight","lowfly"],
+ ["가슴","인클라인 푸시업","reps","inclinepushup"],
+ ["가슴","디클라인 푸시업","reps","declinepushup"],
+ ["등","친업","reps","chinup"],
+ ["등","어시스트 풀업","reps","assistedpullup"],
+ ["등","뉴트럴 그립 랫풀다운","weight","neutralpulldown"],
+ ["등","원암 케이블 로우","weight","singlerow"],
+ ["등","체스트 서포티드 로우","weight","supportedrow"],
+ ["등","시티드 로우 머신","weight","machinerow"],
+ ["등","인버티드 로우","reps","invertedrow"],
+ ["등","덤벨 풀오버","weight","dbpullover"],
+ ["등","백 익스텐션","reps","backextension"],
+ ["어깨","아놀드 프레스","weight","arnold"],
+ ["어깨","숄더 프레스 머신","weight","machinepress"],
+ ["어깨","스미스 머신 숄더 프레스","weight","smithpress"],
+ ["어깨","리버스 펙덱 플라이","weight","reversepec"],
+ ["어깨","케이블 리어 델트 플라이","weight","cablerear"],
+ ["어깨","업라이트 로우","weight","upright"],
+ ["어깨","덤벨 슈러그","weight","dbshrug"],
+ ["팔","EZ바 컬","weight","ezcurl"],
+ ["팔","인클라인 덤벨 컬","weight","inclinecurl"],
+ ["팔","컨센트레이션 컬","weight","concentration"],
+ ["팔","리버스 컬","weight","reversecurl"],
+ ["팔","로프 해머 컬","weight","ropehammer"],
+ ["팔","트라이셉스 익스텐션 머신","weight","tricepsmachine"],
+ ["팔","덤벨 트라이셉스 킥백","weight","tricepskick"],
+ ["팔","원암 덤벨 오버헤드 익스텐션","weight","singleoverhead"],
+ ["팔","벤치 딥스","reps","benchdip"],
+ ["복근","싯업","reps","situp"],
+ ["복근","리버스 크런치","reps","reversecrunch"],
+ ["복근","바이시클 크런치","reps","bicyclecrunch"],
+ ["복근","사이드 플랭크","time","sideplank"],
+ ["복근","데드 버그","reps","deadbug"],
+ ["복근","버드 독","reps","birddog"],
+ ["복근","앱 롤아웃","reps","abwheel"],
+ ["복근","복근 크런치 머신","weight","machinecrunch"],
+ ["복근","마운틴 클라이머","reps","climber"],
+ ["유산소","야외 달리기","time","outdoorrun"],
+ ["유산소","줄넘기","time","rope"],
+ ["유산소","버피","reps","burpee"],
+ ["유산소","점핑 잭","reps","jumpingjack"]
 ];
 const DEFAULTS={wakeLock:true,routineFill:'last',keypad:true,barKg:20,calView:'month'};
 const SET_TYPES={'':'일반',warm:'웜업',drop:'드롭',fail:'실패'};
@@ -458,9 +576,142 @@ function addMonths(k,n){const d=parse(k);return dkey(new Date(d.getFullYear(),d.
 
 /* ===================== domain helpers ===================== */
 const exById=id=>S.exercises.find(e=>e.id===id)||{id,name:'(삭제된 운동)',part:'기타',mode:'weight'};
-const hasImg=ex=>/^ex\d{3}$/.test(ex.id);
-function thumb(ex,cls){const c='thumb '+(cls||'')+(hasImg(ex)?' tap':'');
-  return hasImg(ex)?`<span class="${c}" data-act="ex-info" data-id="${ex.id}"><img src="img/${ex.id}.webp" alt="" loading="lazy" onerror="this.parentNode.textContent='${esc(ex.part)}'"></span>`:`<span class="${c}">${esc(ex.part)}</span>`;}
+/* Original SVG pictograms. Human silhouette uses fg; equipment uses accent; supports use muted.
+   Coordinates share a 64px canvas with a clear margin, so nothing is cropped in round avatars. */
+const EX_ART=(()=>{
+  const path=(d,c='')=>`<path${c?` class="${c}"`:''} d="${d}"/>`;
+  const head=(x,y)=>`<circle cx="${x}" cy="${y}" r="4" fill="currentColor" stroke="none"/>`;
+  const person=(x,y,d)=>head(x,y)+path(d);
+  const gear=d=>path(d,'gear'),support=d=>path(d,'support');
+  const bar=(x,y,w=34)=>gear(`M${x-w/2} ${y}h${w} M${x-w/2+4} ${y-5}v10 M${x+w/2-4} ${y-5}v10`);
+  const db=(x,y)=>gear(`M${x-4} ${y}h8 M${x-4} ${y-3}v6 M${x+4} ${y-3}v6`);
+  const bench=support('M10 43h31 M15 43v11 M37 43v11');
+  const seat=support('M22 43h20 M25 43v12 M39 43v12 M22 30v13');
+  const rails=support('M8 8v48 M56 8v48');
+  const pulley=support('M53 9v46 M47 9h6');
+  const a={
+    squat:person(29,15,'M29 23l-7 13 18 6-9 13 M23 36l-9 9 8 10 M28 25l12-2')+bar(32,23),
+    legpress:person(16,27,'M20 33l10 11 12-14 8-6 M30 44l13-5 7-10')+support('M9 32l13 18h15 M43 13l13 19 M8 55h46')+gear('M47 20l-6 10 M44 17l-6 10'),
+    extension:person(24,15,'M24 23v17h13l16-10 M37 40l10 7')+seat+gear('M46 30l6 6 M49 27l6 6'),
+    legcurl:person(12,32,'M19 35l20 5 8-17 M39 40l12 8')+bench+gear('M42 24l10 2 M44 20l10 2'),
+    lunge:person(28,13,'M28 21v14l14 5v15 M28 35l-9 17h-9 M27 24l-8 9 M30 24l9 9')+db(17,36)+db(41,36),
+    bridge:person(12,37,'M19 40l15-11 13 11v13 M34 29l-9 20h-8')+support('M7 45h16 M9 45v9 M7 55h49')+bar(34,30,24),
+    hinge:person(45,21,'M39 25l-17 9 12 12-5 9 M22 34l-7 19 M35 28l6 16')+bar(41,46,24),
+    hack:person(28,15,'M28 23l-6 13 17 8-7 10 M23 35l-10 10 7 9 M28 26l10 1')+support('M11 14l26 39 M39 10l17 33 M8 55h42')+gear('M19 23l12-6'),
+    calf:person(32,13,'M32 21v17 M32 38l-7 12v4 M32 38l9 12v4 M32 25l-13 6 M32 25l13 6')+bar(32,24,42)+support('M21 57h26'),
+    bench:person(12,35,'M19 37h22l9 8v10 M25 37V19 M37 37V19')+bench+bar(31,17),
+    incline:person(22,25,'M26 31l12 12 11 2v10 M29 34l5-17 M36 41l7-22')+support('M13 26l21 22h11 M19 34v21 M40 48v7')+bar(39,16,28),
+    dbbench:person(12,35,'M19 37h22l9 8v10 M25 37V20 M37 37V20')+bench+db(24,17)+db(40,17),
+    dbincline:person(22,25,'M26 31l12 12 11 2v10 M29 34l1-16 M36 41l10-17')+support('M13 26l21 22h11 M19 34v21 M40 48v7')+db(28,16)+db(48,21),
+    chestpress:person(23,16,'M23 24v17h14v13 M24 28l9 5h14 M24 28l12-6h11')+seat+support('M14 11v42')+gear('M48 20v17'),
+    pecfly:person(32,14,'M32 22v17 M32 39l-8 14 M32 39l8 14 M32 27l-14 4V18 M32 27l14 4V18')+seat+gear('M13 17v18 M51 17v18'),
+    cablefly:person(32,17,'M32 25v15 M32 40l-10 14 M32 40l10 14 M32 28l-10 7 9 3 M32 28l10 7-9 3')+rails+gear('M8 17l14 18 M56 17L42 35'),
+    dip:person(31,13,'M30 21l-5 15 12 9-8 8 M27 28l13 6v9')+support('M18 55V39h30v16'),
+    pushup:person(14,29,'M21 32l22 9 10 7 M24 34l-5 11h-9 M43 41l-8 7')+support('M7 51h50'),
+    pulldown:person(32,24,'M32 32v12 M32 44l-10 10 M32 44l10 10 M32 34L20 25V16 M32 34l12-9v-9')+seat+gear('M16 14h32 M32 14V6'),
+    row:person(22,19,'M22 27v14l18 5 11-5 M23 30l12 5h11')+support('M13 44h17 M18 44v10 M51 35v18')+gear('M45 34h12'),
+    bentrow:person(43,19,'M37 24l-17 9 12 13-5 9 M20 33l-8 20 M36 26l-1 14')+bar(35,42,28),
+    dbrow:person(45,22,'M39 26l-18 6-6 19 M21 32l12 8v13 M37 27l3 15 M26 31L19 43')+bench+db(42,45),
+    pullup:person(32,25,'M32 33v10 M32 43l-7 11 M32 43l7 11 M32 35L19 25V12 M32 35l13-10V12')+gear('M12 10h40'),
+    pullover:person(27,16,'M27 24l-6 15 8 15 M21 39l-8 13 M27 27l15 10h8')+pulley+gear('M49 9l-5 27'),
+    tbar:person(39,17,'M34 23l-13 9 11 15-7 8 M21 32l-8 21 M31 26l4 12')+gear('M26 55l18-21 M35 36l10 7 M39 32l10 7'),
+    deadlift:person(33,14,'M31 22l-10 12 15 8-5 13 M21 34l-8 19 M29 26l9 18')+bar(37,47),
+    facepull:person(24,16,'M24 24v17 M24 41l-7 13 M24 41l10 13 M24 28l13 3-5-10 M24 28l9-10')+pulley+gear('M53 18l-18 3'),
+    press:person(32,27,'M32 35v8 M32 43l-9 12 M32 43l9 12 M32 36L20 27V15 M32 36l12-9V15')+bar(32,12,42),
+    dbpress:person(32,26,'M32 34v9 M32 43l-9 12 M32 43l9 12 M32 34L19 26V15 M32 34l13-8V15')+db(18,12)+db(46,12),
+    lateral:person(32,14,'M32 22v18 M32 40l-8 15 M32 40l8 15 M32 27H12 M32 27h20')+db(11,27)+db(53,27),
+    front:person(25,14,'M25 22v18 M25 40l-8 15 M25 40l8 15 M25 27h23')+db(49,27),
+    rear:person(43,17,'M37 22l-16 14 12 10-5 9 M21 36l-8 18 M30 29L13 21 M30 29l15 10')+db(10,20)+db(48,41),
+    shrug:person(32,13,'M32 21v18 M32 39l-8 16 M32 39l8 16 M32 24l-14 3v16 M32 24l14 3v16')+bar(32,46,46),
+    cablelateral:person(28,14,'M28 22v18 M28 40l-7 15 M28 40l7 15 M28 27h23')+support('M8 12v43')+gear('M8 50l43-23')+db(52,27),
+    curl:person(32,14,'M32 22v18 M32 40l-8 15 M32 40l8 15 M32 26l-12 9 3-12 M32 26l12 9-3-12')+bar(32,22,32),
+    dbcurl:person(32,14,'M32 22v18 M32 40l-8 15 M32 40l8 15 M32 26l-12 11 1-12 M32 26l12 11-1-12')+db(20,23)+db(44,23),
+    hammer:person(32,14,'M32 22v18 M32 40l-8 15 M32 40l8 15 M32 26l-12 11 1-10 M32 26l12 11-1-10')+gear('M20 22v10 M16 22h8 M16 32h8 M44 22v10 M40 22h8 M40 32h8'),
+    cablecurl:person(25,14,'M25 22v18 M25 40l-8 15 M25 40l8 15 M25 27l12 10 5-12')+pulley+gear('M42 25l11 27 M39 23l7 4'),
+    preacher:person(20,16,'M20 24l7 15-6 14 M23 29l13 11 9-13')+support('M24 37l21 9 M34 43v12 M12 45h14')+bar(45,25,22),
+    pushdown:person(25,14,'M25 22v18 M25 40l-8 15 M25 40l8 15 M25 27l14 6 5 10')+pulley+gear('M53 9l-9 33 M39 44h12'),
+    overhead:person(30,28,'M30 36v7 M30 43l-8 12 M30 43l8 12 M30 37L20 18l13-6 M30 37L40 18l-7-6')+db(33,10),
+    skull:person(12,35,'M19 37h22l9 8v10 M25 37V18l-9 9 M37 37V18l-9 9')+bench+bar(21,28,22),
+    closebench:person(12,35,'M19 37h22l9 8v10 M28 37V20 M34 37V20')+bench+bar(31,17,28),
+    crunch:person(22,28,'M27 34l10 11 10-13 9 15 M28 35l-13 6 M37 45H15')+support('M8 53h48'),
+    legraise:person(12,42,'M19 44h16l10-26 M35 44l17-22 M23 44l-4 5H9')+support('M8 54h48'),
+    hangraise:person(27,24,'M27 32v10h23 M27 42l19 7 M27 33L15 22V12 M27 33l12-11V12')+gear('M10 10h37'),
+    cablecrunch:person(35,28,'M31 34l-8 10 16 5-13 6 M30 35l12-9 M34 31l9-10')+pulley+gear('M53 9l-11 15')+support('M13 57h35'),
+    plank:person(14,31,'M21 34l22 9 11 4 M24 35l-4 10h-9 M43 43l-8 4')+support('M7 51h50'),
+    twist:person(30,23,'M30 31l4 15 16 5 M34 46L22 49l-9-10 M30 34l-12-4-6 6 M30 34l-9 5-9-3')+gear('M9 36h7')+support('M8 56h47'),
+    run:person(35,13,'M33 21l-8 15 14 8-7 11 M25 36L15 47H8 M30 26l13 5 8-7 M30 26l-12 3-6-5')+support('M9 58h46 M51 24v34'),
+    bike:person(33,13,'M31 21l-10 12 15 6-8 12 M31 23l15 6h8')+gear('M10 49a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M38 49a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M18 49l9-14 19 14H18 M27 35h-8'),
+    stairs:person(33,12,'M32 20l-6 14 14 3v13 M26 34l-10 11v10 M29 25l12 1 7-7')+support('M8 58h15v-9h15v-9h16'),
+    rowing:person(24,19,'M24 27l7 14 13 6 10-3 M26 30l11 4h13')+support('M8 52h47 M12 43h22 M16 43v9')+gear('M50 34v10 M50 35h8'),
+    elliptical:person(33,12,'M32 20v16l10 10-1 7 M32 36l-12 8-7 10 M32 25l-14 6 M32 25l14 4')+support('M17 19v36 M48 19v36')+gear('M8 56h16 M36 56h17'),
+    walk:person(32,13,'M32 21v17 M32 38l-11 17 M32 38l14 15 M32 26l-12 10 M32 26l12 7')+support('M9 58h46'),
+    abduction:person(32,13,'M32 21v17 M32 38L17 44l-6 10 M32 38l15 6 6 10 M32 26l-12 8 M32 26l12 8')+seat+gear('M11 42l-5 1 M53 42l5 1 M11 39l-5 4 5 3 M53 39l5 4-5 3'),
+    adduction:person(32,13,'M32 21v17 M32 38l-9 7 3 9 M32 38l9 7-3 9 M32 26l-12 8 M32 26l12 8')+seat+gear('M8 43h10l-4-4 M18 43l-4 4 M56 43H46l4-4 M46 43l4 4'),
+    kickback:person(34,14,'M32 22l-7 16-8 15 M25 38l22 6 7-5 M30 27l14 1')+support('M45 18v37')+gear('M9 52l42-10'),
+    stepup:person(30,12,'M30 20v16l13 1v10 M30 36l-12 18 M30 26l-12 6 M30 26l14 5')+support('M34 56V47h22v9')+db(17,34),
+    sideplank:person(15,27,'M21 32l17 12 15 6 M24 34l-6 15H9 M24 34V14')+support('M7 55h50'),
+    birddog:person(14,28,'M21 31h18l15-7 M23 31l-9 8H7 M27 32v17h-9 M39 32l3 17h9')+support('M7 55h50'),
+    deadbug:person(13,42,'M20 44h15l7-15 12 5 M25 43l-3-16 M35 44l9 9 M25 43l10-19')+support('M8 57h48'),
+    abwheel:person(41,25,'M36 30l-12 7-11 13h9 M32 33l12 11h9')+gear('M48 49a5 5 0 1 0 10 0a5 5 0 1 0-10 0 M46 49h14')+support('M8 57h49'),
+    backextension:person(47,18,'M41 23l-15 14-13 17 M26 37l-3 17 M38 27l7 7')+support('M20 40l13-10 M25 36v19 M12 56h28'),
+    rope:person(32,13,'M32 21v17 M32 38l-8 11 M32 38l8 11 M32 26l-15 8 M32 26l15 8')+gear('M16 34C-1 60 65 60 48 34'),
+    jumpingjack:person(32,17,'M32 25v13 M32 38L17 55 M32 38l15 17 M32 29L15 13 M32 29l17-16'),
+    burpee:person(32,18,'M32 26v14 M32 40l-10 14 M32 40l10 14 M32 30L17 12 M32 30l15-18')+gear('M8 34v13l-4-4 M8 47l4-4 M56 34v13l-4-4 M56 47l4-4')
+  };
+  Object.assign(a,{
+    frontsquat:a.squat+gear('M35 29h9'),goblet:person(29,15,'M29 23l-7 13 18 6-9 13 M23 36l-9 9 8 10 M29 25l9 4-3-8')+db(36,20),
+    smithsquat:a.squat+rails,bulgarian:a.lunge+support('M8 48h12 M10 48v8'),reverselunge:a.lunge+gear('M11 17h-6l3-3 M5 17l3 3'),
+    sumo:person(32,14,'M32 22v13 M32 35L16 44l-6 11 M32 35l16 9 6 11 M32 26l-8 18 M32 26l8 18')+bar(32,47,38),
+    dbhinge:person(45,21,'M39 25l-17 9 12 12-5 9 M22 34l-7 19 M35 28l6 16')+db(41,47),
+    singlehinge:person(45,21,'M39 25l-17 9 5 20 M22 34L8 24 M35 28l6 16')+db(41,47),
+    seatedcurl:person(24,15,'M24 23v17h15l-9 13 M39 40l7 11')+seat+gear('M25 51l10 5'),
+    bodybridge:person(12,43,'M19 46l15-15 13 11v12 M34 31L24 51h-9')+support('M7 58h49'),
+    seatedcalf:person(24,15,'M24 23v17h17v11l8-2 M24 28l12 9')+seat+bar(40,38,20)+support('M35 56h20'),
+    bodysquat:person(29,15,'M29 23l-7 13 18 6-9 13 M23 36l-9 9 8 10 M29 25h19'),
+    decline:person(13,31,'M20 34l21 8 9 5v8 M25 36V17 M37 40V21')+support('M9 37l34 13 M14 40v15 M40 49v6')+bar(31,15),
+    dbfly:person(32,18,'M32 26v15 M32 41l-9 13 M32 41l9 13 M32 28L16 34l-5-10 M32 28l16 6 5-10')+bench+db(10,21)+db(54,21),
+    inclinefly:person(26,23,'M30 29l7 13 12 3v10 M31 32l-15 2-4-13 M31 32l15-3 5-12')+support('M17 28l18 21h10 M23 37v18')+db(11,18)+db(53,14),
+    smithbench:a.bench+rails,smithincline:a.incline+rails,
+    lowfly:person(32,17,'M32 25v15 M32 40l-10 14 M32 40l10 14 M32 28l-10 7 9-11 M32 28l10 7-9-11')+rails+gear('M8 51l14-16 M56 51L42 35'),
+    inclinepushup:person(16,23,'M23 27l20 13 10 10 M25 29l-6 9H9')+support('M7 39h15 M10 39v16 M7 57h50'),
+    declinepushup:person(14,35,'M21 37l22-10 10-1 M24 36l-5 14H9')+support('M41 29h16 M53 29v26 M7 57h50'),
+    chinup:a.pullup+gear('M17 14h6 M41 14h6'),assistedpullup:a.pullup+support('M21 53h22 M51 11v44'),
+    neutralpulldown:person(32,24,'M32 32v12 M32 44l-10 10 M32 44l10 10 M32 34L23 25V17 M32 34l9-9v-8')+seat+gear('M23 13v6 M41 13v6 M23 13h18 M32 13V6'),
+    singlerow:person(22,19,'M22 27v14l18 5 11-5 M23 30l11 6 9-8')+support('M13 44h17 M18 44v10')+gear('M43 28l14 11'),
+    supportedrow:a.dbrow+support('M18 28l23 11 M28 33v21'),machinerow:a.row+support('M10 17v35 M54 23v29'),
+    invertedrow:person(19,29,'M25 33l18 12 11 7 M28 35V15 M35 39V15')+gear('M14 12h32')+support('M14 13v41 M46 13v41'),
+    dbpullover:person(16,34,'M23 37h18l9 9v9 M27 37l-2-16-15-1')+bench+db(9,19),
+    arnold:a.dbpress+gear('M23 21l4-3 M41 21l-4-3'),machinepress:a.dbpress+support('M10 26v29 M54 26v29 M23 45h18'),smithpress:a.press+rails,
+    reversepec:a.pecfly+support('M27 29h10v15'),cablerear:a.rear+rails+gear('M8 11l5 10 M56 16L45 39'),
+    upright:person(32,14,'M32 22v18 M32 40l-8 15 M32 40l8 15 M32 27l-15-2 6 10 M32 27l15-2-6 10')+bar(32,36,30),
+    dbshrug:person(32,13,'M32 21v18 M32 39l-8 16 M32 39l8 16 M32 24l-14 3v16 M32 24l14 3v16')+db(16,46)+db(48,46),
+    ezcurl:person(32,14,'M32 22v18 M32 40l-8 15 M32 40l8 15 M32 26l-12 9 3-12 M32 26l12 9-3-12')+gear('M13 23h8l5-4 12 6 5-2h8 M16 19v8 M48 19v8'),
+    inclinecurl:person(27,15,'M27 23l7 18 11 4v10 M30 29l-11 9-1-12 M30 29l14 7 4-10')+support('M18 21l12 26h14 M25 40v15')+db(17,24)+db(49,24),
+    concentration:person(24,16,'M24 24l9 14-14 5-5 12 M33 38l13 6 6 11 M29 30l10 8-3 12')+seat+db(35,52),
+    reversecurl:a.curl+gear('M19 27h6 M39 27h6'),ropehammer:a.hammer+pulley+gear('M44 32l9 21'),
+    tricepsmachine:person(24,15,'M24 23v18h15v13 M24 28l12 2 7 13')+seat+support('M51 24v31')+gear('M38 44h11'),
+    tricepskick:person(43,18,'M37 23l-16 13 12 10-5 9 M21 36l-8 18 M33 28l-7 10-15-7')+db(9,30),
+    singleoverhead:person(30,28,'M30 36v7 M30 43l-8 12 M30 43l8 12 M30 37L24 17l13-5 M30 37l13 5')+db(38,10),
+    benchdip:person(27,22,'M25 30l4 13 15 5 11 1 M26 33l-9 11')+support('M8 44h14 M11 44v12 M7 58h50'),
+    situp:person(29,21,'M30 29l7 16 10-11 9 15 M31 32l-13 3 M37 45H16')+support('M8 55h48'),
+    reversecrunch:person(12,42,'M19 44h16l2-14 16-2 M35 44l11-7 9 6 M23 44l-4 6H9')+support('M8 56h48'),
+    bicyclecrunch:person(20,31,'M26 35l10 10 4-15 13 1 M36 45l12 6 8-8 M26 35l8-10')+support('M8 57h48'),
+    machinecrunch:a.cablecrunch+support('M17 35v20 M44 39v16'),
+    climber:person(14,26,'M21 30l22 9 11 8 M24 31l-5 16H9 M38 37l-11 8 7 7')+support('M7 57h50'),
+    outdoorrun:person(35,13,'M33 21l-8 15 14 8-7 11 M25 36L15 47H8 M30 26l13 5 8-7 M30 26l-12 3-6-5')
+  });
+  return a;
+})();
+
+// Source-only artwork: fixed seed IDs resolve to motion + equipment, including old backups.
+const seedOf=ex=>!ex.custom&&/^ex\d{3}$/.test(ex.id)?SEED[Number(ex.id.slice(2))]:null;
+const hasImg=ex=>!!seedOf(ex)&&Number(ex.id.slice(2))<57;
+function exerciseIcon(ex){
+  const seed=seedOf(ex),key=seed?seed[3]:({하체:'bodysquat',가슴:'pushup',등:'pullup',어깨:'lateral',팔:'dbcurl',복근:'crunch',유산소:'outdoorrun'}[ex.part]||'bodysquat');
+  const art=EX_ART[key]||EX_ART.bodysquat;
+  return `<svg class="ex-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${art}</svg>`;
+}
+function thumb(ex,cls){return `<span class="thumb ${cls||''} tap" data-act="ex-info" data-id="${esc(ex.id)}" role="button" tabindex="0" aria-label="${esc(ex.name)} 운동 정보">${exerciseIcon(ex)}</span>`;}
 const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
 /* 기록 방식(ex.mode) 기준 — 모든 화면·계산은 이 표를 따른다.
    weight: kg × 회. 볼륨 = kg×회, 1RM·강도·원판·PR(무게) 계산.
@@ -681,7 +932,7 @@ function renderItem(it,i){
   const ex=exById(it.exId),mode=modeOf(ex),M=MODES[mode],prevRec=lastRecord(it.exId,V.date),im=inputMode(),met=itemMetric(it);
   let h=`<section class="card ex" data-item="${it.id}"><div class="ex-head"><span class="ex-idx">${i+1}</span>${thumb(ex,'sm')}
     <div class="grow ex-title"><span class="part">${esc(ex.part)}</span><span>${esc(ex.name)}</span><span class="badge pr" data-pr="${it.id}" ${isItemPR(it,V.date)?'':'hidden'}>PR</span></div>
-    ${hasImg(ex)?`<button class="iconbtn" data-act="ex-info" data-id="${ex.id}" aria-label="운동 정보">${I.info}</button>`:''}<button class="iconbtn" data-act="item-menu" aria-label="운동 메뉴">${I.more}</button></div>
+    <button class="iconbtn" data-act="ex-info" data-id="${ex.id}" aria-label="운동 정보">${I.info}</button><button class="iconbtn" data-act="item-menu" aria-label="운동 메뉴">${I.more}</button></div>
     <div class="ex-meta">${met?`<span>${met.label} <b class="num" data-vol="${it.id}">${met.value}</b></span>`:''}
     ${prevRec?`${met?'<span class="sep"></span>':''}<span>지난번 <b class="num">${lastSummary(it.exId,V.date).replace(/^\d+세트 · /,'')}</b> <span class="muted">(${ago(prevRec.date)})</span></span>`:''}</div>
     <textarea class="memo" rows="1" placeholder="메모" data-memo="${it.id}">${esc(it.memo)}</textarea>
@@ -979,9 +1230,10 @@ function setOptionsBox(ctx){
   m.querySelectorAll('[data-bar]').forEach(b=>{b.onclick=()=>{S.settings.barKg=+b.dataset.bar;save();setOptionsBox(ctx);};});
 }
 function exInfoBox(ex){
+  const mode=modeOf(ex),record=mode==='reps'?'횟수 기록':mode==='time'?'시간(분) · 강도/거리 기록':'무게(kg) × 횟수 기록';
   modal(`<h3><span class="muted" style="font-weight:600;font-size:14px;margin-right:6px">${esc(ex.part)}</span>${esc(ex.name)}</h3>
-    <div class="frames"><figure><img src="img/${ex.id}-0.webp" alt="${esc(ex.name)} 시작 자세"><figcaption>시작</figcaption></figure><figure><img src="img/${ex.id}-1.webp" alt="${esc(ex.name)} 끝 자세"><figcaption>끝</figcaption></figure></div>
-    <p class="muted" style="font-size:11px">사진: free-exercise-db (퍼블릭 도메인)</p>
+    <div class="ex-art-preview">${exerciseIcon(ex)}</div><p class="muted">${record}</p>
+    ${hasImg(ex)?`<div class="frames"><figure><img src="img/${ex.id}-0.webp" alt="${esc(ex.name)} 시작 자세"><figcaption>시작</figcaption></figure><figure><img src="img/${ex.id}-1.webp" alt="${esc(ex.name)} 끝 자세"><figcaption>끝</figcaption></figure></div><p class="muted" style="font-size:11px">자세 참고 사진: free-exercise-db (퍼블릭 도메인)</p>`:'<p class="muted">동작과 기구를 단순화한 아이콘입니다.</p>'}
     <button class="btn block" data-act="modal-close">닫기</button>`);
 }
 function customExBox(edit){
@@ -1416,7 +1668,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.act==='re-name'){RE.name=t.value;return;}
 });
 document.addEventListener('change',e=>{if(e.target.dataset.act==='stat-ex'){V.statEx=e.target.value;render();}});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('.sets input')){e.preventDefault();const inputs=[...document.querySelectorAll('.sets input')];const i=inputs.indexOf(e.target);if(i>=0&&i<inputs.length-1)inputs[i+1].focus();else e.target.blur();}});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('.thumb[data-act="ex-info"]')){e.preventDefault();exInfoBox(exById(e.target.dataset.id));return;}if(e.key==='Enter'&&e.target.matches('.sets input')){e.preventDefault();const inputs=[...document.querySelectorAll('.sets input')];const i=inputs.indexOf(e.target);if(i>=0&&i<inputs.length-1)inputs[i+1].focus();else e.target.blur();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(saveT)flushSave();}else{refreshDuration();if(Date.now()-lastSyncTick>30000)sync();}updateWakeLock();});
 window.addEventListener('pagehide',()=>{if(saveT)flushSave();});
 window.addEventListener('online',()=>sync());

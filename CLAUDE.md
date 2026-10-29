@@ -10,6 +10,7 @@
 - 동기화는 `cloud sync` 절의 `C`(메타)·`sync()`·`markLocalChanges()`가 담당. 로컬 저장은 `save()`(지연 저장) / `flushSave()`(시작·완료·백그라운드 전환 시 즉시 저장)로 통일하고, 서버에서 받은 데이터를 적용할 때만 `persist()`를 직접 쓴다.
 - 서버 스키마를 바꾸면 `supabase/schema.sql`과 README의 동기화 절을 같이 갱신한다. 키 체계(`settings`/`exercises`/`routines`/`w:<날짜>`)는 바꾸지 말 것.
 - `supabase.json`은 배포 설정이라 커밋한다. `window.__liftlog`는 테스트용 디버그 핸들.
+- 운동 목록은 `SEED` 120개. 기존 ID 순서는 유지하고 새 항목은 맨 뒤에 추가한다. `SEED` 네 번째 값은 소스 전용 `EX_ART` SVG 키이며 저장 데이터에는 넣지 않는다. 썸네일은 `exerciseIcon()`이 그리는 인라인 SVG(사람 `--fg`, 기구 `--accent`, 지지대 `--muted`), 사용자 정의 운동은 부위 대표 아이콘. `hasImg()`는 기존 57개 자세 사진 유무에만 쓴다.
 - 운동 사진은 `assets/ex/`(WebP) → 빌드 시 `dist/img/`. ID 기반(`img/<exId>.webp`)이라 데이터 모델에는 넣지 않는다. 원본 매핑은 `assets/ex/_source-map.json`.
 - 운동 추가 시트 본문(`.sheet .body`)은 세로 flex라 자식에 `flex:none`이 필수. 빼면 스크롤 가능한 자식이 찌그러진다.
 - 화면을 `innerHTML`로 다시 그릴 때는 스크롤을 보존한다: `render()`는 같은 탭이면 `window.scrollY`, `renderPicker()`/`renderRoutineEditor()`는 `.sheet .body`의 `scrollTop`을 복원. 피커의 선택 토글은 `updatePickerSelection()`으로 행만 갱신한다.

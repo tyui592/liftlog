@@ -28,7 +28,7 @@ function app(initial,currentTime=new Date(2026,9,28,18).getTime()){
     localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
     setTimeout:()=>++timerId,clearTimeout(){},setInterval(){}};
   vm.createContext(context);
-  const exposed=script.replace('window.__liftlog={','window.__liftlog={normalize,ensureWorkout,addExercises,loadRoutine,loadDay,render,renderSession,renderSettings,workoutDuration,fmtDuration,startSession,pauseSession,flushSave,durationBox,snapshot,V,');
+  const exposed=script.replace('window.__liftlog={','window.__liftlog={seedExercises,thumb,exInfoBox,applyRemote,normalize,ensureWorkout,addExercises,loadRoutine,loadDay,render,renderSession,renderSettings,workoutDuration,fmtDuration,startSession,pauseSession,flushSave,durationBox,snapshot,V,');
   vm.runInContext(exposed,context);
   const api=window.__liftlog;
   return {api,node,storage,document,
@@ -129,4 +129,52 @@ test('merged reps-only inputs still ignore weight and legacy unknown time stays 
   assert.doesNotMatch(a.node('#app').innerHTML,/data-kg=/);assert.match(a.node('#app').innerHTML,/data-reps=/);
   const start=new Date(2026,9,27,18).getTime(),b=app(legacy(start,start));
   assert.equal(b.api.workoutDuration(b.api.S.workouts['2026-10-27']),null);
+});
+
+// Catalog upgrades must not reinterpret saved exercise IDs or overwrite user data.
+test('catalog upgrade adds missing exercises once and preserves records and bookmarks',()=>{
+  const initial={version:1,exercises:[{id:'ex000',part:'하체',name:'스쿼트',mode:'weight',custom:false,bookmark:true},{id:'cxmine',part:'팔',name:'내 운동',mode:'reps',custom:true}],routines:[{id:'r1',items:[{exId:'ex019',sets:[{kg:45,reps:10}]}]}],workouts:{'2026-10-27':{items:[{id:'i1',exId:'ex010',sets:[{kg:60,reps:8,done:true}]}]}},settings:{}};
+  const a=app(initial),api=a.api;
+  assert.ok(api.S.exercises.length>=120);
+  assert.equal(api.S.exercises.find(e=>e.id==='ex019').name,'랫풀다운');
+  assert.equal(api.S.exercises.find(e=>e.id==='ex056').name,'걷기');
+  assert.equal(api.S.exercises.find(e=>e.id==='ex000').bookmark,true);
+  assert.equal(api.S.exercises.find(e=>e.id==='cxmine').mode,'reps');
+  assert.equal(api.S.routines[0].items[0].exId,'ex019');
+  assert.equal(api.S.workouts['2026-10-27'].items[0].sets[0].kg,60);
+  const n=api.S.exercises.length;api.normalize();assert.equal(api.S.exercises.length,n);
+  assert.equal(new Set(api.S.exercises.map(e=>e.id)).size,n);
+  for(const [name,mode] of [['고블릿 스쿼트','weight'],['친업','reps'],['사이드 플랭크','time']]){
+    assert.equal(api.S.exercises.find(e=>e.name===name)?.mode,mode,name);
+  }
+});
+test('every built-in thumbnail works offline without a photo request and opens valid details',()=>{
+  const a=app();
+  for(const ex of a.api.seedExercises()){
+    const html=a.api.thumb(ex,'sm');
+    assert.match(html,/<svg/);assert.doesNotMatch(html,/<img/);
+    assert.match(html,/data-act="ex-info"/);
+    a.api.exInfoBox(ex);
+    const detail=a.node('#modal').innerHTML;
+    assert.ok(detail.includes(ex.name));
+    for(const [,file] of detail.matchAll(/src="img\/([^"]+)"/g)){
+      assert.ok(fs.existsSync(require('node:path').join(__dirname,'../assets/ex',file)),file);
+    }
+  }
+  const custom=a.api.thumb({id:'cx1',part:'등',name:'사용자 운동',custom:true},'sm');
+  assert.match(custom,/<svg/);assert.doesNotMatch(custom,/<img/);
+});
+
+test('an older cloud catalog still restores new exercises without changing remote bookmarks',()=>{
+  const a=app(),api=a.api;
+  api.C.last.exercises='already-synced';
+  api.applyRemote('exercises',[{id:'ex019',part:'등',name:'랫풀다운',mode:'weight',custom:false,bookmark:true}]);
+  api.normalize();
+  assert.equal(api.S.exercises.length,120);
+  assert.equal(api.S.exercises.find(e=>e.id==='ex019').bookmark,true);
+  const assisted=api.S.exercises.find(e=>e.name==='어시스트 풀업');
+  assert.equal(assisted.mode,'reps'); // More assistance must not become a heavier-weight PR.
+  api.addExercises(api.todayKey(),[assisted.id]);
+  api.render();const html=a.node('#app').innerHTML;
+  assert.match(html,/sets reps/);assert.doesNotMatch(html,/data-kg=/);
 });
