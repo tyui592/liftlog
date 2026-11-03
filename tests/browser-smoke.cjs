@@ -47,6 +47,9 @@ async function flow(browser,name,scheme){
     const rows=page.locator('#picker-list .item');
     await expect(rows).toHaveCount(120);
     await expect(page.locator('#picker-list .thumb svg')).toHaveCount(120);
+    await expect(page.locator('#picker-list svg[data-art-kind="illustration"]')).toHaveCount(112);
+    await expect(page.locator('#picker-list svg[data-art-kind="fallback"]')).toHaveCount(8);
+    await expect(page.locator('#picker-list svg[data-art-source="everkinetic:0211"]')).toHaveCount(1);
     await expect(page.locator('#picker-list img')).toHaveCount(0);
     const badArt=await page.locator('#picker-list .thumb svg').evaluateAll(els=>els.filter(el=>{const b=el.getBBox();return b.width===0||b.height===0||b.x<0||b.y<0||b.x+b.width>64||b.y+b.height>64;}).length);
     assert.equal(badArt,0,'artwork must fit its SVG viewport');

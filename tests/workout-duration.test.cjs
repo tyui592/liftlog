@@ -165,6 +165,20 @@ test('every built-in thumbnail works offline without a photo request and opens v
   assert.match(custom,/<svg/);assert.doesNotMatch(custom,/<img/);
 });
 
+test('artwork uses correct barbell curl source, labels unavailable poses and credits original creators',()=>{
+  const a=app(),ex=name=>a.api.S.exercises.find(e=>e.name===name);
+  assert.match(a.api.thumb(ex('바벨 컬')),/data-art-source="everkinetic:0211"/);
+  assert.match(a.api.thumb(ex('랫풀다운')),/data-art-kind="fallback"/);
+  a.api.exInfoBox(ex('랫풀다운'));
+  assert.match(a.node('#modal').innerHTML,/동작 일러스트 미제공/);
+  a.api.exInfoBox(ex('벤치 프레스'));
+  assert.match(a.node('#modal').innerHTML,/벤치.*생략/);
+  assert.match(a.api.renderSettings(),/일러스트 출처/);
+  a.api.exInfoBox(ex('바벨 컬'));
+  assert.match(a.node('#modal').innerHTML,/Everkinetic/);
+  assert.match(a.node('#modal').innerHTML,/CC BY-SA 4.0/);
+});
+
 test('an older cloud catalog still restores new exercises without changing remote bookmarks',()=>{
   const a=app(),api=a.api;
   api.C.last.exercises='already-synced';

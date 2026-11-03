@@ -1,0 +1,225 @@
+{
+  "everkineticCommit": "446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6",
+  "workoutGuideCommit": "aac599224bb9780305239607ef98540b7e0ce389",
+  "rows": [
+    {
+      "liftlogName": "스쿼트",
+      "source": "Everkinetic",
+      "sourceId": "0122",
+      "note": "정확 대응: 바벨 스쿼트",
+      "sourceRecord": {
+        "id": "0122",
+        "name": "barbell-squat",
+        "title": "Barbell Squat",
+        "primer": "",
+        "type": "compound",
+        "primary": [
+          "quadriceps"
+        ],
+        "secondary": [
+          "ischiocrural muscles"
+        ],
+        "equipment": [
+          "barbell"
+        ],
+        "steps": [
+          "This is an exercise for leg strengthening, mainly the quadriceps.",
+          "Lifting a barbell off of a weight rack, position it on your shoulders.",
+          "Place your feet slightly wider than shoulder width apart with your knees and toes pointed slightly outward.",
+          "Drawing your abs in descend slowly by bending at the knees and hips as if you are sitting down (squatting).",
+          "Lower yourself as far as you can control without letting your body shift towards your toes (this will cause you to loose balance).",
+          "Pause in the downward position and slowly return upright to the starting position."
+        ],
+        "tips": [],
+        "references": [],
+        "svg": [
+          "svg/0122-relaxation.svg",
+          "svg/0122-tension.svg"
+        ],
+        "png": [
+          "png/0122-relaxation.png",
+          "png/0122-tension.png"
+        ]
+      },
+      "changes": "Removed white background group, CSS theme color and display scaling; no pose or equipment geometry changes."
+    },
+    {
+      "liftlogName": "벤치 프레스",
+      "source": "Everkinetic",
+      "sourceId": "0042",
+      "note": "종목 대응 · 원본에도 벤치 생략. 자세 정확도 보완 필요",
+      "sourceRecord": {
+        "id": "0042",
+        "name": "bench-press",
+        "title": "Bench Press: Barbell",
+        "primer": "This is an exercise for the chest.",
+        "type": "compound",
+        "primary": [
+          "pectoralis major"
+        ],
+        "secondary": [
+          "triceps brachii",
+          "deltoideus (clavicula)"
+        ],
+        "equipment": [
+          "bench",
+          "barbell"
+        ],
+        "steps": [
+          "Lie on a flat bench with your feet flat on the floor, keep your back flat on the bench.",
+          "Grasp the bar a little wider than shoulder width apart.",
+          "Raise the barbell above your body and move it over the middle of your chest, this is your starting position.",
+          "Lower the bar down so it just touches your chest.",
+          "Raise the bar till your arms are fully extended and your elbows are locked.",
+          "Return to starting position."
+        ],
+        "tips": [],
+        "references": [
+          "https://youtu.be/LnhpKTXeIeg"
+        ],
+        "svg": [
+          "svg/0042-relaxation.svg",
+          "svg/0042-tension.svg"
+        ],
+        "png": [
+          "png/0042-relaxation.png",
+          "png/0042-tension.png"
+        ]
+      },
+      "changes": "Removed white background group, CSS theme color and display scaling; no pose or equipment geometry changes."
+    },
+    {
+      "liftlogName": "랫풀다운",
+      "source": "Everkinetic",
+      "sourceId": "0093",
+      "note": "변형 대응: 언더핸드. 와이드 오버핸드 그림이 아님",
+      "sourceRecord": {
+        "id": "0093",
+        "name": "underhand-pull-downs",
+        "title": "Pull Down: Underhand",
+        "primer": "This is an exercise for lats and biceps strengthening.",
+        "type": "isolation",
+        "primary": [
+          "latissimus dorsi"
+        ],
+        "secondary": [
+          "biceps brachii"
+        ],
+        "equipment": [
+          "cable"
+        ],
+        "steps": [
+          "Sitting upright with your abs drawn in grasp a Pull Down bar with and underhand grip shoulder width apart.",
+          "Pull the bar down till the bar reaches your upper chest, keeping your elbows close to your body.",
+          "Slowly return the bar to the starting position.",
+          "Repeat."
+        ],
+        "tips": [],
+        "references": [],
+        "svg": [
+          "svg/0093-relaxation.svg",
+          "svg/0093-tension.svg"
+        ],
+        "png": [
+          "png/0093-relaxation.png",
+          "png/0093-tension.png"
+        ]
+      },
+      "changes": "Removed white background group, CSS theme color and display scaling; no pose or equipment geometry changes."
+    },
+    {
+      "liftlogName": "사이드 레터럴 레이즈",
+      "source": "Everkinetic",
+      "sourceId": "0018",
+      "note": "정확 대응: 덤벨 레터럴 레이즈",
+      "sourceRecord": {
+        "id": "0018",
+        "name": "lateral-dumbbell-raises",
+        "title": "Lateral Dumbbell Raises",
+        "primer": "This is an exercise for lateral deltoid, shoulder and forearm strengthening.",
+        "type": "isolation",
+        "primary": [
+          "deltoid"
+        ],
+        "secondary": [
+          "forearm"
+        ],
+        "equipment": [
+          "dumbbells"
+        ],
+        "steps": [
+          "Grasp a dumbbell in each hand, palms facing inward towards your body and the dumbbells at your sides.",
+          "Standing with your feet shoulder with apart, draw your abs in and bend your knees slightly.",
+          "While keeping your torso still, raise the your arms up to the sides keeping your arms straight with a slight bend in the elbows.",
+          "Raise your arms up until in line with your shoulders, your palms should face the floor.",
+          "Hold the position for a moment then in a controlled movement lower your arms to the starting position.",
+          "Repeat"
+        ],
+        "tips": [
+          "Maintain a good upright posture ensuring no arching in the back in order to prevent injuries."
+        ],
+        "references": [],
+        "svg": [
+          "svg/0018-relaxation.svg",
+          "svg/0018-tension.svg"
+        ],
+        "png": [
+          "png/0018-relaxation.png",
+          "png/0018-tension.png"
+        ]
+      },
+      "changes": "Removed white background group, CSS theme color and display scaling; no pose or equipment geometry changes."
+    },
+    {
+      "liftlogName": "바벨 컬",
+      "source": "Everkinetic",
+      "sourceId": "0211",
+      "note": "정확 대응: 일반 바벨 컬. EZ바 대체 아님",
+      "sourceRecord": {
+        "id": "0211",
+        "name": "biceps-curls-with-barbell",
+        "title": "Biceps Curl: Barbell",
+        "primer": "This is a basic exercise for the biceps.",
+        "type": "isolation",
+        "primary": [
+          "biceps brachii"
+        ],
+        "secondary": [
+          "deltoid",
+          "forearm"
+        ],
+        "equipment": [
+          "barbell"
+        ],
+        "steps": [
+          "This is a basic exercise for the biceps (arms).",
+          "Stand with your feet shoulder width apart, your knees slightly bent and your abs drawn in.",
+          "Grasp a barbell with palms facing up, approximately shoulder width apart.",
+          "Lower your arms fully to above your thighs and bending only your elbows, raise the bar to your upper chest.",
+          "Pause for a moment and then return to the starting position.",
+          "Note: Do not swing your hips or back during this exercise."
+        ],
+        "tips": [],
+        "references": [],
+        "svg": [
+          "svg/0211-relaxation.svg",
+          "svg/0211-tension.svg"
+        ],
+        "png": [
+          "png/0211-relaxation.png",
+          "png/0211-tension.png"
+        ]
+      },
+      "changes": "Removed white background group, CSS theme color and display scaling; no pose or equipment geometry changes."
+    },
+    {
+      "liftlogName": "플랭크",
+      "source": "Workout Guide",
+      "sourceId": "plank",
+      "note": "Workout Guide 유지 · Everkinetic 원본 없음",
+      "sourceRecord": null,
+      "changes": "CSS recolor and display scaling only"
+    }
+  ],
+  "thumbnailDisplayChanges": "Explicit theme foreground fill and 0.45px non-scaling outline added to Everkinetic thumbnail paths for readability. Original geometry unchanged; enlarged detail view unthickened."
+}

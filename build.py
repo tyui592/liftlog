@@ -78,7 +78,7 @@ out = head + head_part + "</head>\n<body>\n" + body_part + tail
 """, encoding="utf-8")
 
 (DIST / "sw.js").write_text("""// 리프트로그 서비스워커: 앱 파일을 캐시해 오프라인(헬스장 지하 등)에서도 열리게 함.
-const CACHE = 'liftlog-v4';
+const CACHE = 'liftlog-v5-artwork';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -132,5 +132,12 @@ for p in (ROOT / "assets" / "ex").glob("*.webp"):
     shutil.copy(p, img_dir / p.name)
     n += 1
 print("exercise images:", n)
+
+# Source notices and full attribution accompany the inline artwork in index.html.
+# SVG geometry is already inline, so thumbnails need no additional network request.
+artwork_out = DIST / "artwork"
+artwork_out.mkdir(exist_ok=True)
+for name in ("manifest.json", "LICENSE-EVERKINETIC.md", "LICENSE-WORKOUT-GUIDE.md", "ATTRIBUTION-WORKOUT-GUIDE.md"):
+    shutil.copy(ROOT / "assets" / "artwork" / name, artwork_out / name)
 
 print("built:", sorted(x.name for x in DIST.iterdir()))
