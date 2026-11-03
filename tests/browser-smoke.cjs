@@ -150,13 +150,87 @@ async function migrationAndOffline(browser,name){
     results.push({browser:name,status:'passed',checks:['legacy records/routine/custom/bookmark migration','service-worker offline reload','offline new icons/detail']});
   }finally{await ctx.close();}
 }
+async function analysisFlow(browser,name,scheme){
+  const ctx=await contextFor(browser,{colorScheme:scheme,viewport:{width:scheme==='dark'?320:390,height:844}});
+  const page=await ctx.newPage();page.setDefaultTimeout(10000);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  try{
+    await page.goto(base);await page.locator('[data-tab="stats"]').click();
+    await expect(page.getByText('아직 완료한 기록이 없어요')).toBeVisible();
+    await page.getByRole('button',{name:'운동 기록하기',exact:true}).click();
+    await expect(page.locator('[data-act="open-picker"]').first()).toBeVisible();
+    await page.evaluate(()=>{
+      const a=window.__liftlog,s=a.S;
+      s.exercises.push({id:'cxreps',name:'테스트 맨몸',part:'등',mode:'reps',custom:true},{id:'cxtime',name:'테스트 달리기',part:'유산소',mode:'time',custom:true});
+      const key=offset=>{const d=new Date();d.setDate(d.getDate()-offset);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+      const set=(kg,reps,extra={})=>({kg,reps,done:true,...extra});
+      for(let i=0;i<12;i++)s.workouts[key(i*3)]={date:key(i*3),durationMs:i===1?null:3600000,items:[
+        {id:'a'+i,exId:'ex010',sets:[set(70-i,10),set(99,10,{warm:true}),set(999,10,{done:false})]},
+        {id:'b'+i,exId:'ex010',sets:[set(60-i,8)]},
+        {id:'c'+i,exId:'cxreps',sets:[set(999,12),set(999,8)]},
+        {id:'d'+i,exId:'cxtime',sets:[set(15,''),set(10,8)]}
+      ]};
+      s.workouts[key(-1)]={items:[{id:'future',exId:'ex010',sets:[set(999,99)]}]};a.persist();
+    });
+    await page.reload();await page.locator('[data-tab="stats"]').click();
+    await expect(page.locator('.stats-overview .stat').nth(0).locator('.v')).toHaveText('10일');
+    await expect(page.locator('.stats-overview .stat').nth(1).locator('.v')).toHaveText('40세트');
+    await expect(page.locator('.stats-page>.stats-note')).toContainText('시간 기록 9/10일');
+    await expect(page.locator('#statEx option')).toHaveCount(3);
+    await page.locator('[data-act="stat-range"][data-v="7"]').click();
+    await expect(page.locator('.stats-overview .stat').nth(0).locator('.v')).toHaveText('3일');
+    await page.locator('[data-act="stat-range"][data-v="84"]').click();
+    await expect(page.locator('.stats-overview .stat').nth(0).locator('.v')).toHaveText('12일');
+    await page.locator('[data-act="stat-trend"][data-v="volume"]').click();
+    await expect(page.locator('[data-act="stat-trend"][data-v="volume"]')).toHaveAttribute('aria-pressed','true');
+    const labels=await page.locator('.stats-bar-column>span').evaluateAll(els=>els.filter(el=>el.textContent.trim()).map(el=>({left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right})));
+    for(let i=1;i<labels.length;i++)assert.ok(labels[i-1].right<=labels[i].left+1,'chart values must not overlap');
+    await page.locator('[data-act="stat-metric"][data-v="e1rm"]').click();
+    await expect(page.locator('.stats-line')).toHaveAttribute('aria-label',/추정 1RM/);
+    await page.locator('#statSearch').fill('존재하지 않는 종목');
+    await expect(page.locator('#statSearchStatus')).toContainText('검색 결과가 없어요');
+    await expect(page.locator('#statEx')).toBeDisabled();
+    await page.locator('#statSearch').fill('달리기');
+    await expect(page.locator('#statEx option:not([disabled])')).toHaveCount(1);
+    await page.locator('#statEx').selectOption('cxtime');
+    await expect(page.locator('.stats-ex-summary strong').first()).toHaveText('25분');
+    await expect(page.locator('[data-act="stat-metric"]')).toHaveCount(1);
+    await expect(page.locator('.stats-line')).toHaveAttribute('aria-label',/총 운동 시간/);
+    await page.locator('.stats-more summary').click();
+    await expect(page.locator('.stats-history-row')).toHaveCount(12);
+    await page.locator('#statSearch').fill('맨몸');await page.locator('#statEx').selectOption('cxreps');
+    await page.locator('[data-act="stat-metric"][data-v="totalReps"]').click();
+    await expect(page.locator('.stats-ex-summary strong').first()).toHaveText('20회');
+    await page.locator('#statSearch').fill('벤치');await page.locator('#statEx').selectOption('ex010');
+    await page.locator('[data-act="stat-metric"][data-v="volume"]').click();
+    await expect(page.locator('.stats-ex-summary strong').first()).toHaveText('1,180kg');
+    await noOverflow(page);
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:path.join(out,`${name}-${scheme}-analysis.png`),fullPage:true});
+    const date=await page.locator('.stats-history-row').first().getAttribute('data-date');
+    await page.locator('.stats-history-row').first().click();
+    await expect(page.locator('[data-tab="today"]')).toHaveClass(/on/);
+    assert.ok(await page.evaluate(date=>window.__liftlog.S.workouts[date].items.length===4,date));
+    await page.locator('[data-tab="stats"]').click();
+    // A period with no valid sets remains navigable, and all-time exposes old records.
+    await page.evaluate(()=>{const s=window.__liftlog.S;s.workouts={'2020-01-01':{items:[{exId:'ex010',sets:[{kg:50,reps:10,done:true}]}]}};window.__liftlog.persist();});
+    await page.reload();await page.locator('[data-tab="stats"]').click();
+    await expect(page.getByText('이 기간에는 완료한 본세트가 없어요')).toBeVisible();
+    await page.getByRole('button',{name:'전체 기록 보기',exact:true}).click();
+    await expect(page.locator('.stats-overview .stat').nth(0).locator('.v')).toHaveText('1일');
+    await expect(page.locator('.stats-line')).toBeVisible();
+    await noOverflow(page);
+    assert.deepEqual(errors,[]);
+    results.push({browser:name,scheme,status:'passed',checks:['analysis empty/range/comparison','mode-specific metrics and duplicate items','search/history navigation','unknown duration','old records/all-time','320px overflow']});
+  }finally{await ctx.close();}
+}
 (async()=>{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   base=`http://127.0.0.1:${server.address().port}`;
   try{
     for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
       const browser=await engine.launch({headless:true});
-      try{for(const scheme of ['light','dark']){await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
+      try{for(const scheme of ['light','dark']){await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
       finally{await browser.close();}
     }
     fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));
