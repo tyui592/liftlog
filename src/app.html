@@ -456,6 +456,7 @@ body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 .starter-plan p{margin:6px 0 10px}
 .starter-actions{display:flex;flex-wrap:wrap;gap:8px}
 .progression{background:var(--surface-2);padding:12px;border-radius:12px;margin:10px 0;font-size:13px}.progression p{line-height:1.6}.progression .btn{margin:4px 4px 0 0}
+.picker-sort{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.picker-sort small{font-size:11px}
 </style>
 
 <div id="app"></div>
@@ -768,6 +769,19 @@ function lastRecord(exId,beforeKey){
   for(const k of ds){if(beforeKey&&k>=beforeKey)continue;const it=S.workouts[k].items.find(i=>i.exId===exId);if(it&&it.sets.length){const done=it.sets.filter(s=>s.done);const src=done.length?done:it.sets;return {date:k,sets:src.map(s=>copySet(s))};}}
   return null;
 }
+function exerciseUsage(){
+  const usage={};
+  statsEntries('0000-01-01',todayKey()).forEach(day=>{
+    const ids=new Set(day.items.map(({ex})=>ex.id));
+    ids.forEach(id=>{const entry=usage[id]||(usage[id]={count:0,last:null});entry.count++;entry.last=day.date;});
+  });
+  return usage;
+}
+function sortedPickerExercises(usage=exerciseUsage()){
+  const list=pickerExercises(),byName=(a,b)=>PARTS.indexOf(a.part)-PARTS.indexOf(b.part)||a.name.localeCompare(b.name,'ko')||a.id.localeCompare(b.id);
+  const byRecent=(a,b)=>(usage[b.id]?.last||'').localeCompare(usage[a.id]?.last||'');
+  return list.sort((a,b)=>P.sort==='frequency'?(usage[b.id]?.count||0)-(usage[a.id]?.count||0)||byRecent(a,b)||byName(a,b):P.sort==='recent'?byRecent(a,b)||byName(a,b):byName(a,b));
+}
 function lastDoneMap(){const m={};sortedDates().forEach(k=>S.workouts[k].items.forEach(it=>{if(it.sets.some(s=>s.done))m[it.exId]=k;}));return m;}
 function blankSets(n){return Array.from({length:n},()=>({kg:'',reps:'',done:false,warm:false,type:''}));}
 function ensureWorkout(k){if(!S.workouts[k])S.workouts[k]={date:k,startedAt:null,finishedAt:null,durationMs:null,resumedAt:null,items:[]};return S.workouts[k];}
@@ -844,12 +858,13 @@ function render(){
   else app.innerHTML=renderSettings();
   renderTabbar();
   document.body.classList.toggle('has-actionbar',!!app.querySelector('.actionbar'));
-  if(renderedTab===V.tab&&y)window.scrollTo(0,y);renderedTab=V.tab;
+  renderedTab=V.tab;
   document.querySelectorAll('.memo,.dnote').forEach(t=>{if(t.value){t.style.height='auto';t.style.height=t.scrollHeight+'px';}});
   if(focusId||focusMemo){
     const nel=focusId?document.getElementById(focusId):document.querySelector(`[data-memo="${focusMemo}"]`);
-    if(nel){nel.focus();try{if(selS!=null)nel.setSelectionRange(selS,selE);}catch(e){}}
+    if(nel){nel.focus({preventScroll:true});try{if(selS!=null)nel.setSelectionRange(selS,selE);}catch(e){}}
   }
+  window.scrollTo(0,y);
   updateWakeLock();
 }
 function renderTabbar(){
@@ -1191,6 +1206,7 @@ function renderSettings(){
 /* ===================== picker sheet ===================== */
 let P=null;
 function openPicker(mode,opt){
+  if(RE&&!P){const body=$('.sheet .body');routineScroll=body?body.scrollTop:0;}
   const hasBm=S.exercises.some(e=>e.bookmark);
   P=Object.assign({mode:mode||'day',tab:'add',q:'',part:hasBm?'북마크':'전체',sort:'recent',equipment:[],selected:[],expanded:null},opt||{});
   P.isReplace=P.mode==='replace'||P.mode==='rreplace';
@@ -1224,18 +1240,15 @@ function pickerAdd(){
   let h=`<div class="search">${I.search}<input id="pq" type="search" placeholder="찾으시는 운동을 검색해보세요" value="${esc(P.q)}" data-act="picker-q" autocomplete="off"></div>`;
   h+=`<div class="chips">${['북마크','전체',...PARTS].map(p=>`<button class="pill ${P.part===p?'on':''}" data-act="picker-part" data-v="${p}">${p==='북마크'?I.star:p}</button>`).join('')}</div>`;
   h+=`<div class="chips" aria-label="기구 필터">${[['all','전체 기구'],...Object.entries(EQUIPMENT)].map(([k,label])=>`<button class="pill ${(k==='all'?!P.equipment.length:P.equipment.includes(k))?'on':''}" data-act="picker-equipment" data-v="${k}" aria-pressed="${k==='all'?!P.equipment.length:P.equipment.includes(k)}">${label}</button>`).join('')}</div>`;
-  h+=`<div class="row" style="justify-content:flex-end"><span class="seg"><button data-act="picker-sort" data-v="recent" class="${P.sort==='recent'?'on':''}">최근 운동순</button><button data-act="picker-sort" data-v="name" class="${P.sort==='name'?'on':''}">부위·이름순</button></span></div>`;
+  h+=`<div class="picker-sort"><span class="seg">${[['recent','최근순'],['frequency','빈도순'],['name','이름순']].map(([v,label])=>`<button data-act="picker-sort" data-v="${v}" class="${P.sort===v?'on':''}" aria-pressed="${P.sort===v}">${label}</button>`).join('')}</span><small class="muted">누적 횟수는 완료한 본세트가 있는 날짜 기준</small></div>`;
   h+=`<div id="picker-list">${pickerAddList()}</div>`;
   return h;
 }
 function pickerAddList(){
-  const lm=lastDoneMap();const q=P.q.trim().toLowerCase();
-  let list=pickerExercises();
-  if(P.sort==='recent')list.sort((a,b)=>(lm[b.id]||'').localeCompare(lm[a.id]||'')||PARTS.indexOf(a.part)-PARTS.indexOf(b.part));
-  else list.sort((a,b)=>PARTS.indexOf(a.part)-PARTS.indexOf(b.part)||a.name.localeCompare(b.name,'ko'));
+  const usage=exerciseUsage(),q=P.q.trim().toLowerCase(),list=sortedPickerExercises(usage);
   if(!list.length)return `<div class="empty" style="padding-top:20px"><p>${P.part==='북마크'&&!q?'북마크한 운동이 없어요. 운동 목록에서 책갈피를 눌러 추가하세요.':'검색 결과가 없어요. 아래 + 버튼으로 직접 추가할 수 있어요.'}</p><button class="btn sm" data-act="picker-reset">필터 초기화</button></div>`;
   return '<div class="list">'+list.map(e=>{const sel=P.selected.includes(e.id);
-    return `<div class="item ${sel?'sel':''}" data-act="picker-sel" data-id="${e.id}"><span class="cb">${sel?I.check:''}</span>${thumb(e)}<div class="grow"><div class="name"><span class="part">${esc(e.part)}</span>${esc(e.name)}${e.custom?' <span class="badge">내 운동</span>':''}</div>${lm[e.id]?`<div class="sub">${ago(lm[e.id])} · ${lastSummary(e.id)}</div>`:''}</div><button class="star ${e.bookmark?'on':''}" data-act="bookmark" data-id="${e.id}" aria-label="북마크">${I.star}</button></div>`;}).join('')+'</div>';
+    return `<div class="item ${sel?'sel':''}" data-act="picker-sel" data-id="${e.id}"><span class="cb">${sel?I.check:''}</span>${thumb(e)}<div class="grow"><div class="name"><span class="part">${esc(e.part)}</span>${esc(e.name)}${e.custom?' <span class="badge">내 운동</span>':''}</div><div class="sub">누적 <b class="num">${usage[e.id]?.count||0}</b>회${usage[e.id]?.last?' · 마지막 '+ago(usage[e.id].last):' · 수행 기록 없음'}</div></div><button class="star ${e.bookmark?'on':''}" data-act="bookmark" data-id="${e.id}" aria-label="북마크">${I.star}</button></div>`;}).join('')+'</div>';
 }
 function lastSummary(exId,beforeKey){
   const lr=lastRecord(exId,beforeKey);if(!lr)return '';const ex=exById(exId);
@@ -1258,8 +1271,8 @@ function pickerPast(){
 }
 
 /* ===================== routine editor ===================== */
-let RE=null;
-function openRoutineEditor(r){RE=r?JSON.parse(JSON.stringify(r)):{id:uid(),name:'',items:[],createdAt:Date.now(),lastUsed:null};RE.isNew=!r;renderRoutineEditor();syncHistory();}
+let RE=null,routineScroll=0;
+function openRoutineEditor(r){routineScroll=0;RE=r?JSON.parse(JSON.stringify(r)):{id:uid(),name:'',items:[],createdAt:Date.now(),lastUsed:null};RE.isNew=!r;renderRoutineEditor();syncHistory();}
 function renderRoutineEditor(){
   if(!RE)return;
   let h=`<div class="sheet"><header class="topbar"><span class="topbar-s"><button class="iconbtn" data-act="re-close" aria-label="닫기">${I.back}</button></span><h1>${RE.isNew?'새 루틴':'루틴 편집'}</h1><span class="topbar-s r"></span></header><div class="body">`;
@@ -1275,11 +1288,12 @@ function renderRoutineEditor(){
     h+=`</div><div class="set-actions"><button data-act="re-set-del">${I.minus}세트삭제</button><button class="add" data-act="re-set-add">${I.plus}세트추가</button></div></section>`;});
   h+=`<button class="btn block" data-act="re-add">${I.plus} 운동 추가</button></div>`;
   h+=`<div class="foot"><button class="btn primary" data-act="re-save">저장</button></div></div>`;
-  const prev=$('.sheet .body');const st=prev?prev.scrollTop:0;
+  const prev=$('.sheet .body');const st=prev&&$('#re-name')?prev.scrollTop:routineScroll;
   $('#overlay').innerHTML=h;
   const body=$('.sheet .body');if(!body)return;
   if(RE.scrollTo!=null){const el=document.querySelector(`[data-ri="${RE.scrollTo}"]`);RE.scrollTo=null;if(el)el.scrollIntoView({block:'start'});}
-  else if(st)body.scrollTop=st;
+  else body.scrollTop=st;
+  routineScroll=body.scrollTop;
 }
 
 /* ===================== modal & history ===================== */

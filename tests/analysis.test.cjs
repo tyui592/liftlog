@@ -179,3 +179,14 @@ test('progression skips duplicates, ignores warmups, and survives normalize and 
  assert.equal(a.run('Object.values(EQUIPMENT_IDS).flat().length'),120);
  assert.equal(a.run('new Set(Object.values(EQUIPMENT_IDS).flat()).size'),120);
 });
+
+test('exercise frequency counts distinct performed dates, excludes invalid warmup future and unfinished sets',()=>{
+ const a=app({'2026-11-01':day([item('ex000',[set(40,10)]),item('ex000',[set(40,10)])]),'2026-11-02':day([item('ex000',[set(40,10,{warm:true})]),item('ex001',[set(40,10)])]),'2026-11-03':day([item('ex000',[set('',10)]),item('ex001',[set(40,10,{done:false})]),item('cxreps',[set('',12)]),item('cxtime',[set(15,'')])]),'2026-11-04':day([item('ex000',[set(40,10)])])},custom);
+ assert.equal(a.run("exerciseUsage().ex000.count"),1);
+ assert.equal(a.run("exerciseUsage().ex000.last"),'2026-11-01');
+ assert.equal(a.run("exerciseUsage().cxreps.count"),1);
+ assert.equal(a.run("exerciseUsage().cxtime.count"),1);
+ a.run("openPicker('day');P.part='전체';P.sort='frequency'");
+ assert.equal(a.run("sortedPickerExercises().findIndex(e=>e.id==='ex001')<sortedPickerExercises().findIndex(e=>e.id==='ex000')"),true);
+ assert.equal(a.run("sortedPickerExercises().findIndex(e=>e.id==='ex000')<sortedPickerExercises().findIndex(e=>e.id==='ex002')"),true);
+});

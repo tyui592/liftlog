@@ -227,6 +227,32 @@ async function analysisFlow(browser,name,scheme){
     results.push({browser:name,scheme,status:'passed',checks:['analysis empty/range/comparison','mode-specific metrics and duplicate items','search/history navigation','unknown duration','old records/all-time','320px overflow']});
   }finally{await ctx.close();}
 }
+async function scrollFlow(browser,name,scheme){
+ const ctx=await contextFor(browser,{colorScheme:scheme,viewport:{width:320,height:740}});
+ try{
+ const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
+ await page.evaluate(()=>{const a=window.__liftlog;const items=Array.from({length:10},(_,i)=>({exId:'ex'+String(i).padStart(3,'0'),sets:[{kg:'40',reps:'10'}]}));a.S.routines=Array.from({length:8},(_,i)=>({id:'routine'+i,name:'스크롤 테스트 '+i,items:structuredClone(items)}));a.persist();});await page.reload();
+ await page.evaluate(()=>{const a=window.__liftlog;a.S.workouts[a.todayKey()]={items:Array.from({length:8},(_,i)=>({id:'scroll'+i,exId:'ex'+String(i).padStart(3,'0'),memo:'긴 운동 메모\n'.repeat(12),sets:[{kg:'40',reps:'10',done:false}]}))};a.persist();});await page.reload();
+ const done=page.locator('[data-done]').last();await done.scrollIntoViewIfNeeded();const y=await page.evaluate(()=>scrollY);await done.click();await expect.poll(async()=>Math.abs(await page.evaluate(()=>scrollY)-y)).toBeLessThan(3);
+ await page.locator('[data-tab="routines"]').click();await page.evaluate(()=>scrollTo(0,800));await page.locator('[data-tab="settings"]').click();
+ await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(0);
+ await page.locator('[data-tab="routines"]').click();await page.locator('[data-act="routine-edit"]').first().click();
+ const body=page.locator('.sheet .body');await body.evaluate(el=>el.scrollTop=el.scrollHeight);const before=await body.evaluate(el=>el.scrollTop);
+ await page.locator('[data-act="re-add"]').click();await expect.poll(()=>body.evaluate(el=>el.scrollTop)).toBe(0);
+ await body.evaluate(el=>el.scrollTop=400);await page.locator('[data-act="picker-close"]').click();
+ await expect.poll(async()=>Math.abs(await body.evaluate(el=>el.scrollTop)-before)).toBeLessThan(3);
+ const last=page.locator('[data-ri]').last().locator('input').first();await last.click();await expect(page.locator('#keypad')).toBeVisible();
+ await expect.poll(async()=>last.evaluate(el=>{const r=el.getBoundingClientRect(),k=document.querySelector('#keypad').getBoundingClientRect();return r.top>=52&&r.bottom<=k.top;})).toBe(true);
+ await page.locator('[data-kp="hide"]').click();await noOverflow(page);
+ await page.locator('[data-act="re-add"]').click();
+ await page.evaluate(()=>{const a=window.__liftlog;const d=new Date(a.todayKey()+'T12:00:00');const key=n=>{const t=new Date(d);t.setDate(t.getDate()-n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');};a.S.workouts={};const item=exId=>({id:exId,exId,sets:[{kg:'40',reps:'10',done:true}]});a.S.workouts[key(1)]={items:[item('ex010'),item('ex010'),item('ex012')]};a.S.workouts[key(2)]={items:[item('ex010')]};a.persist();});
+ await page.locator('[data-act="picker-sort"][data-v="frequency"]').click();
+ const rows=page.locator('.item[data-act="picker-sel"]');await expect(rows.first()).toHaveAttribute('data-id','ex010');await expect(rows.first()).toContainText('누적 2회');await expect(rows.nth(1)).toHaveAttribute('data-id','ex012');await expect(rows.nth(1)).toContainText('누적 1회');
+ await page.locator('[data-act="picker-equipment"][data-v="dumbbell"]').click();await expect(rows.first()).toHaveAttribute('data-id','ex012');
+ await noOverflow(page);await page.screenshot({path:path.join(out,`${name}-${scheme}-frequency.png`)});assert.deepEqual(errors,[]);
+ results.push({browser:name,scheme,status:'passed',checks:['tab scroll reset','routine picker return position','last set visible above keypad','frequency ordering/count/filter']});
+ }finally{await ctx.close();}
+}
 async function progressionFlow(browser,name,scheme){
  const ctx=await contextFor(browser,{colorScheme:scheme,viewport:{width:320,height:740}});
  try{
@@ -284,7 +310,7 @@ async function starterFlow(browser,name,scheme){
   try{
     for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
       const browser=await engine.launch({headless:true});
-      try{for(const scheme of ['light','dark']){await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await progressionFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} progression/filters`);await starterFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} starters`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
+      try{for(const scheme of ['light','dark']){await scrollFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} scroll`);await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await progressionFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} progression/filters`);await starterFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} starters`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
       finally{await browser.close();}
     }
     fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));
