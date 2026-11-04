@@ -1,6 +1,6 @@
 """Regenerate source-only artwork from the reviewed pinned manifest (no downloads).
 Run after editing assets/artwork/manifest.json: python3 scripts/build_artwork.py
-The generated block keeps src/app.html self-contained and offline capable.
+The generated block keeps src/js/artwork.js self-contained and offline capable.
 """
 import json, pathlib, re, xml.etree.ElementTree as ET
 ROOT=pathlib.Path(__file__).resolve().parents[1]
@@ -36,7 +36,7 @@ for entry in manifest['exercises']:
     meta[entry['id']]=item
 assert len(meta)==120 and len(set(meta))==120
 block='// BEGIN GENERATED ARTWORK — scripts/build_artwork.py\nconst EX_ART='+json.dumps(art,ensure_ascii=False,separators=(',',':'))+';\nconst ART_META='+json.dumps(meta,ensure_ascii=False,separators=(',',':'))+';\n// END GENERATED ARTWORK'
-p=ROOT/'src/app.html';source=p.read_text()
+p=ROOT/'src/js/artwork.js';source=p.read_text()
 if '// BEGIN GENERATED ARTWORK' in source:
     source=re.sub(r'// BEGIN GENERATED ARTWORK.*?// END GENERATED ARTWORK',lambda _:block,source,flags=re.S)
 else:

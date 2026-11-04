@@ -6,8 +6,17 @@
 
 ```
 gymlog/
-├── src/app.html      ← 앱 소스 (HTML+CSS+JS 한 파일). 여기만 수정한다.
-├── build.py          ← src → dist 빌드 (head/manifest/sw 삽입, supabase.json 주입)
+├── src/app.html      ← HTML 골격과 스크립트 로딩 순서
+├── src/styles.css    ← 화면 스타일
+├── src/js/
+│   ├── catalog.js    ← 기본 운동·기구·설정
+│   ├── artwork.js    ← 생성된 운동 SVG와 출처
+│   ├── domain.js     ← 운동·시간·통계 계산 (DOM/저장소 접근 없음)
+│   ├── storage.js    ← 저장 검증·복구 사본·다른 창 변경 감지
+│   ├── sync.js       ← 클라우드 인증·동기화
+│   └── app.js        ← 화면·입력 이벤트와 모듈 조합
+├── src/sw.js         ← 버전별 오프라인 앱 파일 관리
+├── build.py          ← src → dist 빌드 (파일 내용 해시·manifest·sw·설정 주입)
 ├── supabase.json     ← Supabase URL/anon key (supabase.example.json 참고)
 ├── supabase/schema.sql ← 동기화 테이블·RLS·분석 뷰
 ├── assets/           ← 앱 아이콘 PNG
@@ -15,12 +24,30 @@ gymlog/
 └── dist/             ← 호스팅에 올리는 완성본
     ├── index.html
     ├── manifest.webmanifest
-    ├── sw.js         ← 오프라인 캐시 (네트워크 우선, 실패 시 캐시)
+    ├── sw.js         ← 버전별 HTML·JS·CSS 전체 캐시
+    ├── js/*.해시.js  ← 내용이 달라지면 파일명도 변경
+    ├── styles.해시.css
     ├── icon-180.png
     └── icon-512.png
 ```
 
 빌드: `python3 build.py`
+
+## 소스 구조와 배포 업데이트
+
+각 JavaScript 파일은 자체 함수 범위를 사용하며 `window.Liftlog`의 명시적 인터페이스로 연결된다. `createDomain({getState, save, notify})`, `createStorage({storage, key})`, `createSync({...})`는 DOM이나 실제 서버 없이 테스트할 수 있다. `app.js`에서 모듈을 조합하고 화면·입력을 처리한다. React나 별도 번들러는 도입하지 않았으며, Python 표준 라이브러리로 빌드한다. 운동 그림 변경 후에는 `python3 scripts/build_artwork.py`로 `src/js/artwork.js`를 재생성한다.
+
+빌드된 JS·CSS에는 내용 해시가 붙는다. 서비스워커는 한 버전의 HTML·JS·CSS를 모두 받아야 설치되며, 설치 도중 파일 다운로드가 실패하면 사용 중인 버전을 유지한다. 새 버전은 기존 앱 창을 모두 닫은 뒤 다시 열 때 적용된다. 열려 있는 운동 화면을 강제로 새 코드로 교체하지 않는다. Supabase SDK는 비동기로 불러오므로 외부 CDN 응답이 늦어도 로컬 기록 화면을 사용할 수 있다. SDK 로드가 끝나면 동기화를 초기화한다.
+
+## 저장 실패와 복구
+
+- 주 저장소와 JSON 형식은 기존 `localStorage`의 `liftlog.v1`을 유지한다. 이번 변경은 IndexedDB 이전이나 저장 용량 확대가 아니다. 전체 JSON 직렬화 비용은 남아 있으며, 추후 실제 기록량·저장 지연을 측정해 저장 어댑터를 교체할 수 있다.
+- 첫 변경 저장 시 이전 기록을, 가져오기·클라우드 교체·전체 삭제 시 교체 직전 기록을 `liftlog.v1.backup`에 보관한다. 사본은 가장 최근 **1개**이며 전체 변경 이력이 아니다. 사본 저장에 실패하면 원본 교체도 중단한다.
+- 설정의 **기록 복구 → 사본 내보내기**에서 내용을 먼저 확인하고, **사본으로 복원**할 수 있다. 복원한 내용도 로그인되어 있으면 동기화 대상이다.
+- 저장 공간 부족·접근 거부·손상된 데이터는 화면 상단에 계속 표시한다. 실패한 내용을 내보내고 공간 문제를 해결한 뒤 **다시 저장**할 수 있다. 손상된 저장 내용은 자동으로 빈 기록으로 덮지 않는다.
+- 손상된 원본은 **저장 원본 확인**으로 내보낼 수 있다. 복구 사본을 복원하거나 정상 JSON을 가져와 교체할 때 읽지 못한 원문을 `liftlog.v1.corrupt`에 보존한다. 이 보존 작업이 실패하면 복원도 중단한다.
+- 다른 창이 먼저 저장한 것을 감지하면 오래된 창의 쓰기를 막는다. 해당 창의 편집 내용을 내보낸 뒤 새로고침한다. 여러 창의 편집을 자동 병합하지 않는다.
+- 복구 사본 역시 같은 브라우저에 있다. 브라우저 데이터 삭제·기기 분실에 대비한 별도 파일 백업과 클라우드 동기화는 계속 필요하다.
 
 ## 기능
 
@@ -131,6 +158,8 @@ gymlog/
 - 로컬(localStorage)이 1차 저장소. 네트워크가 없어도 앱은 그대로 동작하고, 연결되면 밀어 올린다.
 - 서버 테이블 `liftlog_kv`에 키 단위로 저장: `settings`, `exercises`, `routines`, `w:<날짜>`. 날짜별 기록이 독립된 행이라 두 기기에서 다른 날을 고쳐도 그대로 합쳐진다.
 - 같은 키를 양쪽에서 고치면 `updated_at`이 늦은 쪽이 이긴다 (last-write-wins). 삭제는 `deleted=true` 행으로 전파된다.
+- 저장이 실패하면 동기화 요청도 중단한다. 서버 응답을 기다리는 동안 입력한 내용은 보존하고, 업로드 값은 요청 직전 사본으로 고정하여 전송하지 않은 편집을 동기화 완료로 처리하지 않는다.
+- 같은 키의 여러 기기 동시 변경은 여전히 last-write-wins이며, 서버의 원자적 충돌 병합을 도입한 것은 아니다. 원격 내용으로 교체하기 전 로컬 복구 사본을 보관한다.
 - 동기화 시점: 앱 시작, 저장 후 2초, 앱을 다시 앞으로 가져올 때(30초 간격), 온라인 복귀, 설정의 "지금 동기화". 동기화 도중 발생한 추가 변경은 대기열에 두었다가 직후 자동 재동기화한다.
 - 처음 로그인하는 기기에서는 서버 기록이 우선 적용되되, 로컬에만 있던 사용자 정의 운동·북마크·루틴과 날짜 기록은 유실 없이 병합되어 서버로 올라간다.
 - `liftlog_sets` 뷰로 SQL에서 세트 단위 분석을 할 수 있다 (`select * from liftlog_sets where exercise_name = '랫풀다운' and not warmup order by workout_date`).
@@ -148,7 +177,7 @@ gymlog/
 4. 1~2분 뒤 `https://<계정>.github.io/liftlog/` 접속
 5. 아이폰 Safari에서 열고 공유 버튼 → **홈 화면에 추가**
 
-이후에는 `src/app.html`만 고치고 push하면 Actions가 `build.py`를 돌려 배포한다. `dist/`는 로컬 확인용이므로 커밋하지 않아도 된다.
+이후에는 해당 기능의 `src/` 파일을 고치고 push하면 Actions가 Node 테스트와 `build.py`를 실행한 뒤 배포한다. `dist/`는 로컬 확인용이므로 커밋하지 않아도 된다.
 
 ### 방법 B — 브랜치 폴더 지정 (Actions 없이)
 
@@ -212,3 +241,16 @@ NODE_PATH=/tmp/liftlog-playwright/node_modules PLAYWRIGHT_BROWSERS_PATH=/tmp/lif
 운동 선택 목록에 `누적 N회`와 마지막 수행일을 표시한다. 빈도는 전체 기록 중 유효한 완료 본세트가 있는 **날짜 수**이며, 같은 날짜에 같은 운동을 중복 추가해도 1회다. 준비 세트·미완료·빈 입력·미래 기록을 제외하고, 맨몸은 횟수, 시간 운동은 분, 무게 운동은 무게와 횟수를 검증한다. 오늘 진행 중인 운동의 완료 본세트도 포함한다. `빈도순`은 횟수 내림차순 → 최근 수행일 → 부위·이름·ID 순으로 정렬한다. 검색·기구·부위 필터와 함께 작동하며 새 저장 필드는 없다.
 
 스크롤: 탭 전환은 맨 위에서 시작하고, 같은 화면의 세트 완료 등 재렌더링은 메모 높이 복원 후 기존 위치를 유지한다. 루틴 편집에서 운동 추가/교체 창을 열었다가 닫으면 원래 편집 위치로 돌아간다. 테스트는 모바일 Chromium/WebKit에서 긴 목록·긴 메모·하단 세트 완료·마지막 세트 키패드·선택창 복귀를 확인한다. 실기기 Safari의 모든 터치/키보드 동작을 보장하는 것은 아니다.
+
+## 구조·저장 안정성 검증
+
+```bash
+node --test tests/*.test.cjs
+python3 build.py
+# Playwright는 앱 런타임 의존성에 포함하지 않는다.
+NODE_PATH=/path/to/playwright/node_modules PLAYWRIGHT_BROWSERS_PATH=/path/to/browsers node tests/browser-smoke.cjs
+# 저장 복구·CDN 지연·서비스워커 업데이트만 빠르게 확인
+LIFTLOG_BROWSER_SUITE=safety NODE_PATH=/path/to/playwright/node_modules PLAYWRIGHT_BROWSERS_PATH=/path/to/browsers node tests/browser-smoke.cjs
+```
+
+브라우저 테스트는 별도 임시 프로필과 로컬 서버를 사용하며 실제 사용자 기록이나 클라우드 계정에 접근하지 않는다. 동기화 경쟁 조건은 제어 가능한 전송 어댑터로 검증한다. 이 검증은 실제 Supabase 계정 간 동기화나 물리 iPhone 검증을 대신하지 않는다.

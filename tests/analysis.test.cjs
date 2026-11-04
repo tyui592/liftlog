@@ -3,8 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../src/app.html'),'utf8');
-const script=[...source.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
+const script=require('./helpers/source.cjs')();
 // The real app runs in isolated storage and a fixed local date; no cloud or user data.
 function app(workouts={},exercises=[]){
   const nodes=new Map(),listeners={};
@@ -176,8 +175,7 @@ test('progression skips duplicates, ignores warmups, and survives normalize and 
  a.run("S.workouts['2026-11-02'].items.push(makeItem('ex000',blankSets(3)))");
  assert.ok(a.run("progressionTarget('ex000',todayKey()).reason"));
  a.run("S.exercises[0].mode='reps';normalize()");assert.equal(a.run('S.exercises[0].progression'),undefined);
- assert.equal(a.run('Object.values(EQUIPMENT_IDS).flat().length'),120);
- assert.equal(a.run('new Set(Object.values(EQUIPMENT_IDS).flat()).size'),120);
+ assert.equal(a.run("seedExercises().filter(ex=>equipmentOf(ex)!=='unknown').length"),120);
 });
 
 test('exercise frequency counts distinct performed dates, excludes invalid warmup future and unfinished sets',()=>{

@@ -9,13 +9,17 @@ const http=require('node:http');
 const root=path.resolve(__dirname,'../dist');
 const out=process.env.LIFTLOG_BROWSER_OUTPUT||fs.mkdtempSync(path.join(os.tmpdir(),'liftlog-browser-'));
 fs.mkdirSync(out,{recursive:true});
+let releaseTest=null;
 const server=http.createServer((req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
   const file=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
   if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
+  if(releaseTest?.fail&&/\/js\/domain\./.test(pathname)){res.writeHead(503).end();return;}
   fs.readFile(file,(err,data)=>{
     if(err){res.writeHead(404).end();return;}
-    const type={'.html':'text/html; charset=utf-8','.js':'application/javascript','.webmanifest':'application/manifest+json','.png':'image/png','.webp':'image/webp'}[path.extname(file)]||'application/octet-stream';
+    if(releaseTest&&file.endsWith('sw.js'))data=Buffer.from(data.toString().replace(/const CACHE=PREFIX\+'([^']+)';/,(_,version)=>`const CACHE=PREFIX+'${version}-upgrade${releaseTest.version}';`));
+    if(releaseTest&&file.endsWith('index.html'))data=Buffer.from(data.toString().replace('<body>',`<body data-test-release="${releaseTest.version}">`));
+    const type={'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.webmanifest':'application/manifest+json','.png':'image/png','.webp':'image/webp'}[path.extname(file)]||'application/octet-stream';
     res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'}).end(data);
   });
 });
@@ -137,8 +141,10 @@ async function migrationAndOffline(browser,name){
   try{
     await page.goto(base);
     assert.deepEqual(await page.evaluate(()=>{const s=window.__liftlog.S;return {n:s.exercises.length,bm:s.exercises.find(e=>e.id==='ex019').bookmark,custom:s.exercises.find(e=>e.id==='cxmine').mode,kg:s.workouts['2026-10-27'].items[0].sets[0].kg,routine:s.routines[0].items[0].exId};}),{n:121,bm:true,custom:'reps',kg:'60',routine:'ex019'});
-    // Wait until the real service worker controls the page before going offline.
-    await page.evaluate(()=>Promise.race([(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));})(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Service worker did not take control')),10000))]));
+    // First install activates without taking over an already open workout.
+    await page.evaluate(()=>navigator.serviceWorker.ready.then(()=>true));
+    await page.reload();
+    await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBe(true);
     await ctx.setOffline(true);
     await page.reload({waitUntil:'domcontentloaded'});
     await expect(page.locator('[data-act="open-picker"]').first()).toBeVisible();
@@ -304,13 +310,95 @@ async function starterFlow(browser,name,scheme){
     results.push({browser:name,scheme,status:'passed',checks:['starter preview/cancel/save','part set counts','load/reload without auto completion','320px overflow']});
   }finally{await ctx.close();}
 }
+async function storageSafetyFlow(browser,name){
+  const ctx=await contextFor(browser),page=await ctx.newPage();page.setDefaultTimeout(10000);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  try{
+    await page.goto(base);
+    await page.evaluate(()=>{const a=window.__liftlog;a.S.workouts['2026-11-03']={items:[],note:'recover me'};if(!a.persist())throw new Error('initial save failed');a.S.workouts['2026-11-03'].note='current';if(!a.persist())throw new Error('second save failed');});
+    await page.locator('[data-tab="settings"]').click();
+    await page.locator('[data-act="import"]').click();await page.locator('#im-json').fill('{"version":1,"exercises":[],"workouts":null}');await page.locator('#im-ok').click();
+    await expect(page.locator('#storage-alert')).toBeVisible();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('liftlog.v1')).workouts['2026-11-03'].note),'current');
+    await page.reload();
+    await page.evaluate(()=>localStorage.setItem('liftlog.v1','{broken'));
+    await page.reload();await expect(page.locator('#storage-alert')).toBeVisible();
+    assert.equal(await page.evaluate(()=>window.__liftlog.persist()),false);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('liftlog.v1')),'{broken');
+    await page.locator('#tabbar [data-tab="settings"]').click();
+    await page.locator('[data-act="storage-backup"]').click();
+    assert.equal(JSON.parse(await page.locator('#ex-json').inputValue()).workouts['2026-11-03'].note,'recover me');
+    await page.locator('#modal [data-act="modal-close"]').click();
+    await page.locator('[data-act="storage-recover"]').click();await page.locator('#m-ok').click();
+    await expect(page.locator('#storage-alert')).toBeHidden();
+    assert.equal(await page.evaluate(()=>localStorage.getItem('liftlog.v1.corrupt')),'{broken');
+    assert.equal(await page.evaluate(()=>window.__liftlog.S.workouts['2026-11-03'].note),'recover me');
+    await page.evaluate(()=>{window.originalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='liftlog.v1')throw new DOMException('full','QuotaExceededError');return window.originalSetItem.call(this,key,value);};window.__liftlog.S.workouts['2026-11-03'].note='retry me';window.__liftlog.save();});
+    await expect(page.locator('#storage-alert')).toBeVisible();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('liftlog.v1')).workouts['2026-11-03'].note),'recover me');
+    await page.evaluate(()=>Storage.prototype.setItem=window.originalSetItem);
+    await page.locator('[data-act="storage-retry"]').click();await expect(page.locator('#storage-alert')).toBeHidden();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('liftlog.v1')).workouts['2026-11-03'].note),'retry me');
+    const other=await ctx.newPage();await other.goto(base);
+    await other.evaluate(()=>{window.__liftlog.S.workouts['2026-11-03'].note='other tab';window.__liftlog.persist();});
+    assert.equal(await page.evaluate(()=>{window.__liftlog.S.workouts['2026-11-03'].note='stale';return window.__liftlog.persist();}),false);
+    await expect(page.locator('#storage-alert')).toContainText('다른 창');
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('liftlog.v1')).workouts['2026-11-03'].note),'other tab');
+    assert.deepEqual(errors,[]);
+    results.push({browser:name,status:'passed',checks:['invalid import preserved','corrupt primary protected','recovery export/restore','quota failure/retry','stale tab protection']});
+  }finally{await ctx.close();}
+}
+async function stalledSDK(browser,name){
+  const ctx=await contextFor(browser),page=await ctx.newPage();
+  await ctx.route('**/npm/@supabase/**',()=>{}); // Intentionally unresolved optional network request.
+  try{
+    await page.goto(base,{waitUntil:'domcontentloaded',timeout:8000});
+    await expect(page.locator('[data-act="open-picker"]').first()).toBeVisible({timeout:3000});
+    await page.evaluate(()=>navigator.serviceWorker.ready.then(()=>true));
+    await page.locator('[data-act="open-picker"]').first().click();
+    await expect(page.locator('#picker-list .item')).toHaveCount(120);
+    results.push({browser:name,status:'passed',checks:['stalled SDK cannot block local UI or offline installation']});
+  }finally{await ctx.close();}
+}
+async function upgradeFlow(browser,name){
+  releaseTest={version:1,fail:false};
+  const ctx=await contextFor(browser);let page=await ctx.newPage();
+  const update=()=>page.evaluate(async()=>{
+    const registration=await navigator.serviceWorker.ready;
+    const result=new Promise(resolve=>registration.addEventListener('updatefound',()=>{
+      const worker=registration.installing;
+      const check=()=>{if(['installed','redundant'].includes(worker.state))resolve(worker.state);};
+      worker.addEventListener('statechange',check);check();
+    },{once:true}));
+    await registration.update();return result;
+  });
+  try{
+    await page.goto(base);await page.evaluate(()=>navigator.serviceWorker.ready.then(()=>true));await page.reload();
+    await expect(page.locator('body')).toHaveAttribute('data-test-release','1');
+    await page.evaluate(()=>{window.__liftlog.S.workouts['2026-11-03']={items:[],note:'survives deployment'};window.__liftlog.persist();});
+    releaseTest={version:2,fail:true};assert.equal(await update(),'redundant');
+    await page.reload();await expect(page.locator('body')).toHaveAttribute('data-test-release','1');
+    releaseTest={version:3,fail:false};assert.equal(await update(),'installed');
+    await page.reload();await expect(page.locator('body')).toHaveAttribute('data-test-release','1');
+    await page.close();
+    // Give the browser a lifecycle turn to activate now that no controlled clients remain.
+    await new Promise(resolve=>setTimeout(resolve,250));
+    page=await ctx.newPage();await page.goto(base);
+    await expect(page.locator('body')).toHaveAttribute('data-test-release','3');
+    assert.equal(await page.evaluate(()=>window.__liftlog.S.workouts['2026-11-03'].note),'survives deployment');
+    await ctx.setOffline(true);await page.reload({waitUntil:'domcontentloaded'});
+    await expect(page.locator('body')).toHaveAttribute('data-test-release','3');
+    await expect(page.locator('[data-act="open-picker"]').first()).toBeVisible();
+    results.push({browser:name,status:'passed',checks:['failed partial install retains release','waiting worker retains open release','next launch upgrades atomically','records and offline shell survive update']});
+  }finally{await ctx.close();releaseTest=null;}
+}
 (async()=>{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   base=`http://127.0.0.1:${server.address().port}`;
   try{
     for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
       const browser=await engine.launch({headless:true});
-      try{for(const scheme of ['light','dark']){await scrollFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} scroll`);await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await progressionFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} progression/filters`);await starterFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} starters`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
+      try{if(process.env.LIFTLOG_BROWSER_SUITE!=='safety')for(const scheme of ['light','dark']){await scrollFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} scroll`);await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await progressionFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} progression/filters`);await starterFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} starters`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);await storageSafetyFlow(browser,name);console.log(`PASS ${name} storage safety`);await stalledSDK(browser,name);console.log(`PASS ${name} stalled SDK`);await upgradeFlow(browser,name);console.log(`PASS ${name} upgrade`);}
       finally{await browser.close();}
     }
     fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));

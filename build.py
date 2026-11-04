@@ -1,7 +1,7 @@
 """src/app.html(프래그먼트) → dist/ (호스팅용 완성 PWA) 로 빌드.
 실행: python3 build.py
 """
-import re, shutil, pathlib
+import re, shutil, pathlib, hashlib, json
 
 ROOT = pathlib.Path(__file__).parent
 SRC = ROOT / "src" / "app.html"
@@ -9,6 +9,19 @@ DIST = ROOT / "dist"
 DIST.mkdir(exist_ok=True)
 
 frag = SRC.read_text(encoding="utf-8")
+# Content-addressed files prevent old HTML from loading a different release's code.
+app_files = []
+def emit_asset(match):
+    source = match.group(1)
+    data = (ROOT / "src" / source).read_bytes()
+    relative = pathlib.Path(source)
+    name = relative.stem + "." + hashlib.sha256(data).hexdigest()[:16] + relative.suffix
+    target = relative.with_name(name)
+    (DIST / target).parent.mkdir(parents=True, exist_ok=True)
+    (DIST / target).write_bytes(data)
+    app_files.append("./" + target.as_posix())
+    return match.group(0).replace("./" + source, "./" + target.as_posix())
+frag = re.sub(r'(?:src|href)="\./([^" ]+\.(?:js|css))"', emit_asset, frag)
 # 아티팩트 전용 메타는 호스팅 버전에서 제거
 frag = re.sub(r'<meta name="claude:viewport-fit-sides"[^>]*>\n?', "", frag)
 
@@ -34,7 +47,7 @@ __SUPABASE_CONFIG__<style>
 tail = """
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
+  window.addEventListener('DOMContentLoaded', function () {
     navigator.serviceWorker.register('./sw.js').catch(function () {});
   });
 }
@@ -54,7 +67,7 @@ if cfg_path.exists():
 head = head.replace("__SUPABASE_CONFIG__", cfg_tag)
 
 # <title>…<link> 등 head 요소는 프래그먼트 앞부분에 있으므로 body 시작 전에 분리
-m = re.search(r"(<div id=\"app\">)", frag)
+m = re.search(r'<div id="(?:storage-alert|app)"', frag)
 head_part, body_part = frag[: m.start()], frag[m.start():]
 out = head + head_part + "</head>\n<body>\n" + body_part + tail
 (DIST / "index.html").write_text(out, encoding="utf-8")
@@ -77,47 +90,16 @@ out = head + head_part + "</head>\n<body>\n" + body_part + tail
 }
 """, encoding="utf-8")
 
-(DIST / "sw.js").write_text("""// 리프트로그 서비스워커: 앱 파일을 캐시해 오프라인(헬스장 지하 등)에서도 열리게 함.
-const CACHE = 'liftlog-v5-artwork';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
-});
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
-});
-function fetchWithTimeout(req, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('timeout')), ms);
-    fetch(req).then(r => { clearTimeout(t); resolve(r); }, err => { clearTimeout(t); reject(err); });
-  });
-}
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  const u = new URL(e.request.url);
-  const isImg = u.origin === location.origin && u.pathname.includes('/img/');
-  const isFont = u.hostname === 'fonts.googleapis.com' || u.hostname === 'fonts.gstatic.com';
-  // 정적 운동 이미지와 폰트는 캐시 우선 (오프라인에서도 사진·폰트 유지)
-  if (isImg || isFont) {
-    e.respondWith(
-      caches.match(e.request).then(cached => cached || fetch(e.request).then(r => {
-        if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
-        return r;
-      }).catch(() => Response.error()))
-    );
-    return;
-  }
-  // 자기 파일 + supabase-js CDN 스크립트만 다룬다. Supabase API 등 다른 요청은 건드리지 않는다.
-  if (u.origin !== location.origin && u.hostname !== 'cdn.jsdelivr.net') return;
-  // 네트워크 우선(지하 헬스장 Lie-Fi 대비 3초 타임아웃), 실패·지연 시 즉시 캐시 반환
-  e.respondWith(
-    fetchWithTimeout(e.request, 3000).then(r => {
-      if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
-      return r;
-    }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || (e.request.mode === 'navigate' ? caches.match('./index.html') : Response.error())))
-  );
-});
-""", encoding="utf-8")
+# A complete release shell is installed atomically. Workers wait for old tabs to close.
+shell = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png', *app_files]
+worker = (ROOT / 'src' / 'sw.js').read_text(encoding='utf-8')
+release_hash = hashlib.sha256()
+for content in [out.encode(), worker.encode(), (DIST / 'manifest.webmanifest').read_bytes(),
+                *((ROOT / 'assets' / name).read_bytes() for name in ('icon-180.png', 'icon-512.png'))]:
+    release_hash.update(hashlib.sha256(content).digest())
+release = release_hash.hexdigest()[:16]
+worker = worker.replace('__RELEASE__', release).replace('__SHELL_FILES__', json.dumps(shell))
+(DIST / 'sw.js').write_text(worker, encoding='utf-8')
 
 for name in ("icon-180.png", "icon-512.png"):
     p = ROOT / "assets" / name

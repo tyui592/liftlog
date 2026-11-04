@@ -5,8 +5,7 @@ const vm=require('node:vm');
 
 // Run the actual app script with a minimal DOM and a controlled wall clock.
 // No cloud account or browser storage belonging to the user is accessed.
-const source=fs.readFileSync(require('node:path').join(__dirname,'../src/app.html'),'utf8');
-const script=[...source.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
+const script=require('./helpers/source.cjs')();
 function app(initial,currentTime=new Date(2026,9,28,18).getTime()){
   let now=currentTime,timerId=0;
   const nodes=new Map(),events={},windowEvents={},storage=new Map();
@@ -28,7 +27,7 @@ function app(initial,currentTime=new Date(2026,9,28,18).getTime()){
     localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
     setTimeout:()=>++timerId,clearTimeout(){},setInterval(){}};
   vm.createContext(context);
-  const exposed=script.replace('window.__liftlog={','window.__liftlog={seedExercises,thumb,exInfoBox,applyRemote,normalize,ensureWorkout,addExercises,loadRoutine,loadDay,render,renderSession,renderSettings,workoutDuration,fmtDuration,startSession,pauseSession,flushSave,durationBox,snapshot,V,');
+  const exposed=script.replace('window.__liftlog={','window.__liftlog={commitRemote,seedExercises,thumb,exInfoBox,applyRemote,normalize,ensureWorkout,addExercises,loadRoutine,loadDay,render,renderSession,renderSettings,workoutDuration,fmtDuration,startSession,pauseSession,flushSave,durationBox,snapshot,V,');
   vm.runInContext(exposed,context);
   const api=window.__liftlog;
   return {api,node,storage,document,
@@ -191,4 +190,14 @@ test('an older cloud catalog still restores new exercises without changing remot
   api.addExercises(api.todayKey(),[assisted.id]);
   api.render();const html=a.node('#app').innerHTML;
   assert.match(html,/sets reps/);assert.doesNotMatch(html,/data-kg=/);
+});
+
+
+test('unrelated remote changes preserve an open duration editor target',()=>{
+  const a=app(),w=workout(a);a.api.flushSave();a.api.durationBox(w);
+  a.node('#duration-min').value='42';a.node('#duration-sec').value='0';
+  const next=JSON.parse(JSON.stringify(a.api.S));next.settings.barKg=15;
+  a.api.commitRemote(next);a.node('#duration-ok').onclick();
+  assert.equal(a.api.S.workouts[w.date].durationMs,2520000);
+  assert.equal(a.api.S.settings.barKg,15);
 });
