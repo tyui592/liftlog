@@ -106,3 +106,25 @@ test('deleted exercise records appear in the other body-part row so the breakdow
   assert.equal(a.run('statsReport(28).current.parts["기타"]'),1);
   assert.match(a.run('renderStats()'),/<strong>기타<\/strong>/);
 });
+
+
+test('starter routines resolve fixed exercise IDs and create independent editable drafts',()=>{
+  const a=app();
+  assert.equal(a.run('typeof starterRoutine'),'function');
+  assert.equal(a.run('STARTER_PLANS.length'),4);
+  assert.equal(a.run('STARTER_PLANS.flatMap(p=>p.sessions).length'),8);
+  assert.equal(a.run('STARTER_PLANS.every(p=>p.sessions.every((s,i)=>starterRoutine(p.id,i).items.every(it=>S.exercises.some(e=>e.id===it.exId)&&it.sets.every(s=>s.kg===String()&&!s.done&&!s.warm))))'),true);
+  a.run("var draft=starterRoutine('full',0);draft.items[0].sets[0].reps='99'");
+  assert.equal(a.run("starterRoutine('full',0).items[0].sets[0].reps"),'10');
+  assert.equal(a.run('S.routines.length'),0);
+  assert.equal(a.run('Object.keys(S.workouts).length'),0);
+  assert.equal(a.run("starterRoutine('missing',0)"),null);
+  assert.equal(a.run("starterRoutine('full',99)"),null);
+});
+
+test('routine muscle preview excludes warmups and combines exercises in the same part',()=>{
+  const a=app();
+  assert.equal(a.run('typeof routineParts'),'function');
+  const result=JSON.parse(a.run(`JSON.stringify(routineParts({items:[{exId:'ex000',sets:[{warm:true},{warm:false},{type:'warm'}]},{exId:'ex001',sets:[{},{}]},{exId:'ex010',sets:[{}]}]}))`));
+  assert.deepEqual(result,[{part:'하체',sets:3},{part:'가슴',sets:1}]);
+});

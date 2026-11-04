@@ -227,13 +227,48 @@ async function analysisFlow(browser,name,scheme){
     results.push({browser:name,scheme,status:'passed',checks:['analysis empty/range/comparison','mode-specific metrics and duplicate items','search/history navigation','unknown duration','old records/all-time','320px overflow']});
   }finally{await ctx.close();}
 }
+async function starterFlow(browser,name,scheme){
+  const ctx=await contextFor(browser,{colorScheme:scheme,viewport:{width:320,height:740}});
+  try{
+    const page=await ctx.newPage(),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(base);
+    await page.locator('[data-act="routine-starters"]').click();
+    await expect(page.locator('[data-act="starter-preview"]')).toHaveCount(8);
+    await page.locator('[data-plan="full"]').click();
+    await expect(page.locator('#re-name')).toHaveValue('전신 기본');
+    await expect(page.locator('[data-ri]')).toHaveCount(5);
+    await expect(page.locator('.routine-coverage')).toContainText('하체 5세트');
+    await page.locator('[data-act="re-close"]').click();
+    await page.locator('[data-tab="routines"]').click();
+    await expect(page.locator('[data-routine]')).toHaveCount(0);
+    await page.locator('[data-act="routine-starters"]').click();
+    await page.locator('[data-plan="five"][data-index="1"]').click();
+    await page.locator('#re-name').fill('내 바벨 B');
+    await page.locator('[data-act="re-save"]').click();
+    await expect(page.locator('[data-routine]')).toHaveCount(1);
+    await expect(page.locator('[data-routine]')).toContainText('내 바벨 B');
+    await noOverflow(page);
+    await page.screenshot({path:path.join(out,`${name}-${scheme}-starters.png`)});
+    await page.locator('[data-act="routine-load"]').click();
+    await expect(page.locator('section.ex')).toHaveCount(3);
+    await expect(page.locator('[data-done].on')).toHaveCount(0);
+    await expect(page.locator('[data-kg]').first()).toHaveValue('');
+    await expect(page.locator('[data-reps]').first()).toHaveValue('5');
+    await page.reload();
+    await expect(page.locator('section.ex')).toHaveCount(3);
+    await noOverflow(page);
+    assert.deepEqual(errors,[]);
+    results.push({browser:name,scheme,status:'passed',checks:['starter preview/cancel/save','part set counts','load/reload without auto completion','320px overflow']});
+  }finally{await ctx.close();}
+}
 (async()=>{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   base=`http://127.0.0.1:${server.address().port}`;
   try{
     for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
       const browser=await engine.launch({headless:true});
-      try{for(const scheme of ['light','dark']){await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
+      try{for(const scheme of ['light','dark']){await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await starterFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} starters`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
       finally{await browser.close();}
     }
     fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));
