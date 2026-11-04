@@ -455,6 +455,7 @@ body.has-keypad .toast{bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 .starter-plan h4{margin:0;font-size:16px}
 .starter-plan p{margin:6px 0 10px}
 .starter-actions{display:flex;flex-wrap:wrap;gap:8px}
+.progression{background:var(--surface-2);padding:12px;border-radius:12px;margin:10px 0;font-size:13px}.progression p{line-height:1.6}.progression .btn{margin:4px 4px 0 0}
 </style>
 
 <div id="app"></div>
@@ -593,6 +594,67 @@ const SEED=[
  ["유산소","버피","reps","burpee"],
  ["유산소","점핑 잭","reps","jumpingjack"]
 ];
+
+const EQUIPMENT={body:'맨몸',dumbbell:'덤벨',barbell:'바벨',machine:'머신',cable:'케이블',other:'기타',unknown:'미지정'};
+// Explicit fixed-ID groups; compound lifts use the usual implement for this catalog entry.
+const EQUIPMENT_IDS={
+ barbell:[0,5,6,10,11,21,25,26,29,34,36,40,43,44,57,64,74,96,98,101],
+ dumbbell:[4,9,12,13,22,30,31,32,33,37,38,42,50,58,60,61,62,63,65,66,75,76,86,89,91,97,99,100,104,105],
+ machine:[1,2,3,7,8,14,15,51,52,53,54,55,59,67,68,69,72,77,78,83,87,92,93,94,103,114],
+ cable:[16,19,20,24,27,28,35,39,41,48,70,79,84,85,95,102],
+ body:[17,18,23,45,46,47,49,56,71,73,80,81,82,88,90,106,107,108,109,110,111,112,115,116,118,119],
+ other:[113,117]
+};
+function equipmentOf(ex){
+ if(ex.custom)return EQUIPMENT[ex.equipment]?ex.equipment:'unknown';
+ const n=Number(String(ex.id).slice(2));return Object.keys(EQUIPMENT_IDS).find(k=>EQUIPMENT_IDS[k].includes(n))||'unknown';
+}
+function validProgression(p){return !!p&&Number.isInteger(p.min)&&Number.isInteger(p.max)&&p.min>0&&p.max>=p.min&&p.max<=100&&Number.isInteger(p.sets)&&p.sets>0&&p.sets<=20&&Number.isFinite(p.step)&&p.step>0&&p.step<=100;}
+function progressionTarget(exId,date){
+ const ex=exById(exId),p=ex.progression;
+ if(modeOf(ex)!=='weight'||!validProgression(p))return null;
+ const dateKey=sortedDates().reverse().find(k=>k<date&&S.workouts[k].finishedAt&&S.workouts[k].items.some(it=>it.exId===exId));
+ if(!dateKey)return {reason:'완료한 이전 운동 기록이 필요해요'};
+ const items=S.workouts[dateKey].items.filter(it=>it.exId===exId),fail=reason=>({date:dateKey,reason});
+ if(items.length!==1)return fail('같은 날 중복된 종목은 목표를 계산하지 않아요');
+ const sets=items[0].sets.filter(s=>!s.warm&&s.type!=='warm');
+ if(sets.length!==p.sets)return fail('이전 본세트 수가 설정과 달라요');
+ if(sets.some(s=>!s.done||s.type||String(s.kg).trim()===''||!Number.isFinite(Number(s.kg))||Number(s.kg)<=0||!Number.isInteger(Number(s.reps))||Number(s.reps)<=0))return fail('완료한 일반 본세트의 무게·횟수를 확인해주세요');
+ const kg=Number(sets[0].kg);
+ if(sets.some(s=>Number(s.kg)!==kg))return fail('세트마다 무게가 달라 목표를 계산하지 않아요');
+ const increase=sets.every(s=>Number(s.reps)>=p.max);
+ return {date:dateKey,kg:increase?Math.round((kg+p.step)*1000)/1000:kg,reps:sets.map(s=>increase?p.min:Math.max(p.min,Math.min(p.max,Number(s.reps)+1))),increase,previous:kg};
+}
+let progressionUndo=null;
+function progressionApplicable(it,k){
+ const w=S.workouts[k],p=exById(it.exId).progression,sets=it.sets.filter(s=>!s.warm&&s.type!=='warm');
+ return k>=todayKey()&&w&&!w.finishedAt&&validProgression(p)&&w.items.filter(x=>x.exId===it.exId).length===1&&sets.length===p.sets&&sets.every(s=>!s.type)&&sets.some(s=>!s.done);
+}
+function applyProgression(it,k){
+ const t=progressionTarget(it.exId,k);if(!t||t.reason||!progressionApplicable(it,k))return false;
+ const before=JSON.stringify(it.sets);let i=0;
+ it.sets.forEach(s=>{if(s.warm||s.type==='warm')return;const reps=t.reps[i++];if(!s.done){s.kg=String(t.kg);s.reps=String(reps);}});
+ progressionUndo={date:k,id:it.id,before,after:JSON.stringify(it.sets)};save();return true;
+}
+function undoProgression(it,k){
+ const u=progressionUndo;if(!u||u.date!==k||u.id!==it.id||u.after!==JSON.stringify(it.sets)||S.workouts[k].finishedAt)return false;
+ it.sets=JSON.parse(u.before);progressionUndo=null;save();return true;
+}
+function progressionHtml(it){
+ const t=progressionTarget(it.exId,V.date);if(!t)return '';
+ const u=progressionUndo,undo=u&&u.date===V.date&&u.id===it.id&&u.after===JSON.stringify(it.sets);
+ return `<div class="progression"><b>다음 운동 목표</b><p>${t.date?fmtShort(t.date)+' 기록 기준 · ':''}${t.reason?esc(t.reason):`${t.increase?'상한 횟수 달성 · 증량':'같은 무게로 횟수 늘리기'}<br>${t.previous} → ${t.kg}kg · ${t.reps.join(' / ')}회`}</p>${!t.reason&&progressionApplicable(it,V.date)?'<button class="btn sm" data-act="progression-apply">미완료 세트에 적용</button>':''}${undo?'<button class="btn sm" data-act="progression-undo">적용 되돌리기</button>':''}</div>`;
+}
+function progressionBox(ex){
+ const p=ex.progression||{min:8,max:12,sets:3,step:2.5};
+ modal(`<h3>다음 운동 목표 설정</h3><p>${esc(ex.name)} · 모든 본세트가 상한 횟수에 도달하면 증량을 제안해요. 자동 적용하지 않습니다.</p>${[['min','최소 횟수'],['max','최대 횟수'],['sets','본세트 수'],['step','증량 단위 (kg)']].map(([k,label])=>`<div class="field"><label for="pg-${k}">${label}</label><input id="pg-${k}" type="number" min="0" step="${k==='step'?'0.001':'1'}" value="${p[k]}"></div>`).join('')}<p id="pg-error" role="alert"></p><div class="acts"><button class="btn" id="pg-off">끄기</button><button class="btn primary" id="pg-save">저장·활성화</button></div><button class="btn" data-act="modal-close">취소</button>`);
+ $('#pg-save').onclick=()=>{const v=Object.fromEntries(['min','max','sets','step'].map(k=>[k,Number($('#pg-'+k).value)]));if(!validProgression(v)){$('#pg-error').textContent='횟수 1~100, 본세트 1~20, 증량 0 초과~100kg, 최소 ≤ 최대를 확인하세요';return;}ex.progression=v;save();closeModal();render();};
+ $('#pg-off').onclick=()=>{delete ex.progression;save();closeModal();render();};
+}
+function pickerExercises(){
+ const q=P.q.trim().toLowerCase();return S.exercises.filter(e=>(!q||e.name.toLowerCase().includes(q)||e.part.includes(q))&&(P.part==='전체'||(P.part==='북마크'?e.bookmark:e.part===P.part))&&(!P.equipment.length||P.equipment.includes(equipmentOf(e))));
+}
+
 const DEFAULTS={wakeLock:true,routineFill:'last',keypad:true,barKg:20,calView:'month'};
 const SET_TYPES={'':'일반',warm:'웜업',drop:'드롭',fail:'실패'};
 const TYPE_TAG={warm:'W',drop:'D',fail:'F'};
@@ -613,6 +675,7 @@ function normalize(){
   if(!Array.isArray(S.routines))S.routines=[];if(!S.workouts||typeof S.workouts!=='object')S.workouts={};
   Object.keys(S.workouts).forEach(k=>{const w=S.workouts[k];if(!w||!Array.isArray(w.items)){delete S.workouts[k];return;}w.date=k;normalizeDuration(w);w.items.forEach(it=>{delete it.restSec;if(!it.id)it.id=uid();if(!Array.isArray(it.sets))it.sets=[];it.sets.forEach(s=>{if(s.done==null)s.done=false;normSet(s);});if(it.memo==null)it.memo='';});});
   S.routines.forEach(r=>{if(!Array.isArray(r.items))r.items=[];r.items.forEach(ri=>{if(!Array.isArray(ri.sets))ri.sets=[];ri.sets.forEach(normSet);});});
+  S.exercises.forEach(e=>{if(!validProgression(e.progression)||modeOf(e)!=='weight')delete e.progression;if(e.custom&&!EQUIPMENT[e.equipment])e.equipment='unknown';});
   // merge any new seed exercises added in later versions
   const have=new Set(S.exercises.map(e=>e.id));
   seedExercises().forEach(e=>{if(!have.has(e.id))S.exercises.push(e);});
@@ -895,7 +958,7 @@ function renderItem(it,i){
     ${prevRec?`${met?'<span class="sep"></span>':''}<span>지난번 <b class="num">${lastSummary(it.exId,V.date).replace(/^\d+세트 · /,'')}</b> <span class="muted">(${ago(prevRec.date)})</span></span>`:''}</div>
     <textarea class="memo" rows="1" placeholder="메모" data-memo="${it.id}">${esc(it.memo)}</textarea>
     <div class="ex-tools"><button data-act="item-load-last" ${prevRec?'':'disabled'}>${I.reload}지난 기록 불러오기</button></div>
-    <div class="sets ${mode}"><span class="h">세트</span>${M.cols.map(c=>`<span class="h">${c}</span>`).join('')}<span class="h">완료</span>`;
+    <div data-progression="${it.id}">${progressionHtml(it)}</div><div class="sets ${mode}"><span class="h">세트</span>${M.cols.map(c=>`<span class="h">${c}</span>`).join('')}<span class="h">완료</span>`;
   let wIdx=0;
   it.sets.forEach((s,j)=>{
     const n=s.type==='warm'?0:(++wIdx);
@@ -909,6 +972,7 @@ function refreshVolumes(){
   const w=S.workouts[V.date];if(!w)return;
   const dv=$('#dayvol');if(dv)dv.textContent=dayVolText(w)||'–';
   w.items.forEach(it=>{
+    const pg=document.querySelector(`[data-progression="${it.id}"]`);if(pg)pg.innerHTML=progressionHtml(it);
     const el=document.querySelector(`[data-vol="${it.id}"]`);if(el){const met=itemMetric(it);if(met)el.textContent=met.value;}
     const pr=document.querySelector(`[data-pr="${it.id}"]`);if(pr)pr.hidden=!isItemPR(it,V.date);
   });
@@ -1128,7 +1192,7 @@ function renderSettings(){
 let P=null;
 function openPicker(mode,opt){
   const hasBm=S.exercises.some(e=>e.bookmark);
-  P=Object.assign({mode:mode||'day',tab:'add',q:'',part:hasBm?'북마크':'전체',sort:'recent',selected:[],expanded:null},opt||{});
+  P=Object.assign({mode:mode||'day',tab:'add',q:'',part:hasBm?'북마크':'전체',sort:'recent',equipment:[],selected:[],expanded:null},opt||{});
   P.isReplace=P.mode==='replace'||P.mode==='rreplace';
   if(P.mode!=='day')P.tab='add';
   renderPicker();
@@ -1159,17 +1223,17 @@ function updatePickerSelection(){
 function pickerAdd(){
   let h=`<div class="search">${I.search}<input id="pq" type="search" placeholder="찾으시는 운동을 검색해보세요" value="${esc(P.q)}" data-act="picker-q" autocomplete="off"></div>`;
   h+=`<div class="chips">${['북마크','전체',...PARTS].map(p=>`<button class="pill ${P.part===p?'on':''}" data-act="picker-part" data-v="${p}">${p==='북마크'?I.star:p}</button>`).join('')}</div>`;
+  h+=`<div class="chips" aria-label="기구 필터">${[['all','전체 기구'],...Object.entries(EQUIPMENT)].map(([k,label])=>`<button class="pill ${(k==='all'?!P.equipment.length:P.equipment.includes(k))?'on':''}" data-act="picker-equipment" data-v="${k}" aria-pressed="${k==='all'?!P.equipment.length:P.equipment.includes(k)}">${label}</button>`).join('')}</div>`;
   h+=`<div class="row" style="justify-content:flex-end"><span class="seg"><button data-act="picker-sort" data-v="recent" class="${P.sort==='recent'?'on':''}">최근 운동순</button><button data-act="picker-sort" data-v="name" class="${P.sort==='name'?'on':''}">부위·이름순</button></span></div>`;
   h+=`<div id="picker-list">${pickerAddList()}</div>`;
   return h;
 }
 function pickerAddList(){
   const lm=lastDoneMap();const q=P.q.trim().toLowerCase();
-  let list=S.exercises.filter(e=>!q||e.name.toLowerCase().includes(q)||e.part.includes(q));
-  if(!q){if(P.part==='북마크')list=list.filter(e=>e.bookmark);else if(P.part!=='전체')list=list.filter(e=>e.part===P.part);}
+  let list=pickerExercises();
   if(P.sort==='recent')list.sort((a,b)=>(lm[b.id]||'').localeCompare(lm[a.id]||'')||PARTS.indexOf(a.part)-PARTS.indexOf(b.part));
   else list.sort((a,b)=>PARTS.indexOf(a.part)-PARTS.indexOf(b.part)||a.name.localeCompare(b.name,'ko'));
-  if(!list.length)return `<div class="empty" style="padding-top:20px"><p>${P.part==='북마크'&&!q?'북마크한 운동이 없어요. 운동 목록에서 책갈피를 눌러 추가하세요.':'검색 결과가 없어요. 아래 + 버튼으로 직접 추가할 수 있어요.'}</p></div>`;
+  if(!list.length)return `<div class="empty" style="padding-top:20px"><p>${P.part==='북마크'&&!q?'북마크한 운동이 없어요. 운동 목록에서 책갈피를 눌러 추가하세요.':'검색 결과가 없어요. 아래 + 버튼으로 직접 추가할 수 있어요.'}</p><button class="btn sm" data-act="picker-reset">필터 초기화</button></div>`;
   return '<div class="list">'+list.map(e=>{const sel=P.selected.includes(e.id);
     return `<div class="item ${sel?'sel':''}" data-act="picker-sel" data-id="${e.id}"><span class="cb">${sel?I.check:''}</span>${thumb(e)}<div class="grow"><div class="name"><span class="part">${esc(e.part)}</span>${esc(e.name)}${e.custom?' <span class="badge">내 운동</span>':''}</div>${lm[e.id]?`<div class="sub">${ago(lm[e.id])} · ${lastSummary(e.id)}</div>`:''}</div><button class="star ${e.bookmark?'on':''}" data-act="bookmark" data-id="${e.id}" aria-label="북마크">${I.star}</button></div>`;}).join('')+'</div>';
 }
@@ -1288,17 +1352,18 @@ function customExBox(edit){
   const sel=(v,cur)=>v===cur?' selected':'';const mode=edit?edit.mode||'weight':'weight';
   modal(`<h3>${edit?'운동 정보 수정':'사용자 정의 운동'}</h3><div class="field"><label>이름</label><input type="text" id="cx-name" placeholder="예: 스미스 머신 스쿼트" maxlength="40" value="${edit?esc(edit.name):''}"></div>
     <div class="field"><label>부위</label><select id="cx-part">${PARTS.map(p=>`<option value="${p}"${sel(p,edit&&edit.part)}>${p}</option>`).join('')}</select></div>
+    <div class="field"><label for="cx-equipment">기구</label><select id="cx-equipment">${Object.entries(EQUIPMENT).map(([k,label])=>`<option value="${k}"${sel(k,edit?equipmentOf(edit):'unknown')}>${label}</option>`).join('')}</select></div>
     <div class="field"><label>기록 방식</label><select id="cx-mode">${Object.keys(MODES).map(m=>`<option value="${m}"${sel(m,mode)}>${MODES[m].label}</option>`).join('')}</select></div>
     <p class="muted" style="font-size:12px">무게 × 횟수: kg·회 입력, 볼륨·1RM 계산 (가중 풀업·딥스도 여기) / 횟수 기준: 회만 입력 / 시간 기준: 분·강도/거리 입력${edit?'<br>바꾸면 기존 기록에도 바로 적용돼요. 횟수 기준으로 바꾸면 이미 적은 kg 는 숨겨지고 계산에서 빠져요.':''}</p>
     <div class="acts"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" id="cx-ok">${edit?'저장':'추가'}</button></div>`);
   setTimeout(()=>{const x=$('#cx-name');if(x)x.focus();},50);
   $('#cx-ok').onclick=()=>{const name=$('#cx-name').value.trim();if(!name){toast('이름을 입력하세요');return;}
-    const part=$('#cx-part').value,md=$('#cx-mode').value;
-    if(edit){Object.assign(edit,{name,part,mode:md});save();closeModal();if(P)renderPicker();else render();toast('운동 정보를 바꿨어요');return;}
+    const part=$('#cx-part').value,md=$('#cx-mode').value,equipment=$('#cx-equipment').value;
+    if(edit){Object.assign(edit,{name,part,mode:md,equipment});if(md!=='weight')delete edit.progression;save();closeModal();if(P)renderPicker();else render();toast('운동 정보를 바꿨어요');return;}
     const dup=S.exercises.find(x=>x.custom&&x.name===name);
-    if(dup){confirmBox('같은 이름의 운동','"'+esc(name)+'"이(가) 이미 있어요. 새로 만들지 않고 기존 운동의 부위·기록 방식을 바꿀까요? 기존 기록에도 바로 반영돼요.','기존 운동 수정',()=>{Object.assign(dup,{part,mode:md});save();if(P)renderPicker();else render();toast('운동 정보를 바꿨어요');});return;}
-    const e={id:'cx'+uid(),name,part,mode:md,custom:true,bookmark:true};S.exercises.push(e);save();closeModal();
-    if(P){P.selected.push(e.id);P.q='';P.part='북마크';renderPicker();}else render();toast('운동을 추가했어요');};
+    if(dup){confirmBox('같은 이름의 운동','"'+esc(name)+'"이(가) 이미 있어요. 새로 만들지 않고 기존 운동의 부위·기록 방식을 바꿀까요? 기존 기록에도 바로 반영돼요.','기존 운동 수정',()=>{Object.assign(dup,{part,mode:md,equipment});if(md!=='weight')delete dup.progression;save();if(P)renderPicker();else render();toast('운동 정보를 바꿨어요');});return;}
+    const e={id:'cx'+uid(),name,part,mode:md,equipment,custom:true,bookmark:true};S.exercises.push(e);save();closeModal();
+    if(P){P.selected.push(e.id);P.q='';P.part='북마크';P.equipment=[];renderPicker();}else render();toast('운동을 추가했어요');};
 }
 function saveRoutineBox(w){
   modal(`<h3>오늘 운동을 루틴으로 저장</h3><p>${w.items.length}개 종목의 세트 구성(무게·횟수)이 함께 저장돼요.</p><div class="field"><label>루틴 이름</label><input type="text" id="sr-name" placeholder="예: 등·이두" maxlength="40"></div>
@@ -1639,9 +1704,12 @@ document.addEventListener('click',e=>{
     case 'item-menu':if(!it)break;{const i=w.items.indexOf(it);menuBox(exById(it.exId).name,[
       {label:'위로 이동',icon:I.up,fn:()=>{if(i>0){w.items.splice(i,1);w.items.splice(i-1,0,it);save();render();}}},
       {label:'아래로 이동',icon:I.down,fn:()=>{if(i<w.items.length-1){w.items.splice(i,1);w.items.splice(i+1,0,it);save();render();}}},
+      ...(modeOf(exById(it.exId))==='weight'?[{label:'다음 운동 목표 설정',icon:I.edit,fn:()=>progressionBox(exById(it.exId))}]:[]),
       {label:'다른 운동으로 교체',icon:I.swap,fn:()=>openPicker('replace',{replaceId:it.id})},
       ...(exById(it.exId).custom?[{label:'운동 정보 수정 (부위·기록 방식)',icon:I.edit,fn:()=>customExBox(exById(it.exId))}]:[]),
       {label:'운동 삭제',icon:I.trash,danger:true,fn:()=>{w.items.splice(i,1);save();render();}}]);}break;
+    case 'progression-apply':if(it){if(!applyProgression(it,V.date))toast('현재 세트 구성을 확인해주세요');render();}break;
+    case 'progression-undo':if(it){if(!undoProgression(it,V.date))toast('입력이 변경되어 되돌릴 수 없어요');render();}break;
     case 'item-load-last':if(it){const lr=lastRecord(it.exId,V.date);if(!lr){toast('지난 기록이 없어요');break;}
       const apply=()=>{it.sets=lr.sets.map(s=>copySet(s));save();render();toast(fmtDay(lr.date)+' 기록을 불러왔어요');};
       if(it.sets.some(s=>s.done))confirmBox('지난 기록 불러오기',fmtDay(lr.date)+' 기록으로 세트를 바꿀까요? 완료 체크는 풀려요.','불러오기',apply);else apply();}break;
@@ -1651,6 +1719,8 @@ document.addEventListener('click',e=>{
     case 'picker-close':closePicker();break;
     case 'picker-tab':P.tab=v;renderPicker();break;
     case 'picker-part':P.part=v;P.q='';renderPicker();break;
+    case 'picker-equipment':if(v==='all')P.equipment=[];else P.equipment=P.equipment.includes(v)?P.equipment.filter(x=>x!==v):[...P.equipment,v];renderPicker();break;
+    case 'picker-reset':P.part='전체';P.equipment=[];P.q='';renderPicker();break;
     case 'picker-sort':P.sort=v;renderPicker();break;
     case 'picker-sel':{const id=b.dataset.id;if(P.isReplace)P.selected=[id];else{const i=P.selected.indexOf(id);if(i>=0)P.selected.splice(i,1);else P.selected.push(id);}updatePickerSelection();}break;
     case 'ex-info':exInfoBox(exById(b.dataset.id));break;

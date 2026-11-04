@@ -227,6 +227,22 @@ async function analysisFlow(browser,name,scheme){
     results.push({browser:name,scheme,status:'passed',checks:['analysis empty/range/comparison','mode-specific metrics and duplicate items','search/history navigation','unknown duration','old records/all-time','320px overflow']});
   }finally{await ctx.close();}
 }
+async function progressionFlow(browser,name,scheme){
+ const ctx=await contextFor(browser,{colorScheme:scheme,viewport:{width:320,height:740}});
+ try{
+ const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
+ await page.evaluate(()=>{const a=window.__liftlog,k=a.todayKey(),d=new Date(k+'T12:00:00');d.setDate(d.getDate()-1);const prev=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');const sets=Array.from({length:3},()=>({kg:'40',reps:'12',done:true}));a.S.workouts[prev]={finishedAt:Date.now()-86400000,items:[{id:'prev',exId:'ex000',sets}]};a.S.workouts[k]={items:[{id:'current',exId:'ex000',sets:sets.map(s=>({...s,done:false}))}]};a.persist();});
+ await page.reload();await page.locator('[data-act="item-menu"]').click();await page.getByText('다음 운동 목표 설정',{exact:true}).click();await page.locator('#pg-save').click();
+ await expect(page.locator('.progression')).toContainText('42.5kg');await page.locator('[data-act="progression-apply"]').click();await expect(page.locator('[data-kg="0"]')).toHaveValue('42.5');
+ await page.locator('[data-act="progression-undo"]').click();await expect(page.locator('[data-kg="0"]')).toHaveValue('40');
+ await page.locator('[data-act="progression-apply"]').click();await page.reload();await expect(page.locator('[data-kg="0"]')).toHaveValue('42.5');
+ await noOverflow(page);await page.screenshot({path:path.join(out,`${name}-${scheme}-progression.png`)});
+ await page.locator('[data-act="open-picker"]').click();await page.locator('[data-act="picker-part"][data-v="가슴"]').click();await page.locator('[data-act="picker-equipment"][data-v="dumbbell"]').click();await page.locator('#pq').fill('프레스');await expect(page.locator('.item[data-act="picker-sel"]')).toHaveCount(2);
+ await page.locator('.item[data-act="picker-sel"] .cb').first().click();await page.locator('[data-act="picker-equipment"][data-v="barbell"]').click();await expect(page.locator('[data-act="picker-confirm"]')).toContainText('1개 추가');await noOverflow(page);
+ await page.screenshot({path:path.join(out,`${name}-${scheme}-equipment.png`)});assert.deepEqual(errors,[]);
+ results.push({browser:name,scheme,status:'passed',checks:['progression configure/apply/undo/reload','equipment combined search and selection','320px overflow']});
+ }finally{await ctx.close();}
+}
 async function starterFlow(browser,name,scheme){
   const ctx=await contextFor(browser,{colorScheme:scheme,viewport:{width:320,height:740}});
   try{
@@ -268,7 +284,7 @@ async function starterFlow(browser,name,scheme){
   try{
     for(const [name,engine] of [['chromium',chromium],['webkit',webkit]]){
       const browser=await engine.launch({headless:true});
-      try{for(const scheme of ['light','dark']){await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await starterFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} starters`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
+      try{for(const scheme of ['light','dark']){await flow(browser,name,scheme);console.log(`PASS ${name} ${scheme}`);await progressionFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} progression/filters`);await starterFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} starters`);await analysisFlow(browser,name,scheme);console.log(`PASS ${name} ${scheme} analysis`);}await migrationAndOffline(browser,name);console.log(`PASS ${name} migration/offline`);}
       finally{await browser.close();}
     }
     fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));

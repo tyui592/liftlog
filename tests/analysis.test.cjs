@@ -114,7 +114,7 @@ test('starter routines resolve fixed exercise IDs and create independent editabl
   assert.equal(a.run('STARTER_PLANS.length'),4);
   assert.equal(a.run('STARTER_PLANS.flatMap(p=>p.sessions).length'),8);
   assert.equal(a.run('STARTER_PLANS.every(p=>p.sessions.every((s,i)=>starterRoutine(p.id,i).items.every(it=>S.exercises.some(e=>e.id===it.exId)&&it.sets.every(s=>s.kg===String()&&!s.done&&!s.warm))))'),true);
-  a.run("var draft=starterRoutine('full',0);draft.items[0].sets[0].reps='99'");
+  a.run("window.draft=starterRoutine('full',0);window.draft.items[0].sets[0].reps='99'");
   assert.equal(a.run("starterRoutine('full',0).items[0].sets[0].reps"),'10');
   assert.equal(a.run('S.routines.length'),0);
   assert.equal(a.run('Object.keys(S.workouts).length'),0);
@@ -127,4 +127,55 @@ test('routine muscle preview excludes warmups and combines exercises in the same
   assert.equal(a.run('typeof routineParts'),'function');
   const result=JSON.parse(a.run(`JSON.stringify(routineParts({items:[{exId:'ex000',sets:[{warm:true},{warm:false},{type:'warm'}]},{exId:'ex001',sets:[{},{}]},{exId:'ex010',sets:[{}]}]}))`));
   assert.deepEqual(result,[{part:'하체',sets:3},{part:'가슴',sets:1}]);
+});
+
+test('progression increases load only on full upper-bound success and otherwise increases reps',()=>{
+ const a=app({'2026-11-02':day([item('ex000',[set(40,12),set(40,12),set(40,12)])],{finishedAt:1})});
+ a.run("S.exercises[0].progression={min:8,max:12,sets:3,step:2.5}");
+ assert.equal(a.run("progressionTarget('ex000','2026-11-03').kg"),42.5);
+ assert.equal(a.run("progressionTarget('ex000','2026-11-03').reps.join(',')"),'8,8,8');
+ a.run("S.workouts['2026-11-02'].items[0].sets[1].reps=9");
+ assert.equal(a.run("progressionTarget('ex000','2026-11-03').kg"),40);
+ assert.equal(a.run("progressionTarget('ex000','2026-11-03').reps.join(',')"),'12,10,12');
+ for(const code of ["sets[0].done=false","sets[0].kg=41","sets[0].type='fail'","sets[0].reps='' "]){
+  const b=app({'2026-11-02':day([item('ex000',[set(40,12),set(40,12),set(40,12)])],{finishedAt:1})});
+  b.run("S.exercises[0].progression={min:8,max:12,sets:3,step:2.5};S.workouts['2026-11-02'].items[0]."+code);
+  assert.ok(b.run("progressionTarget('ex000','2026-11-03').reason"));
+ }
+});
+test('equipment mapping and compound picker filters retain selected IDs',()=>{
+ const a=app();
+ assert.equal(a.run("equipmentOf(exById('ex059'))"),'machine');
+ assert.equal(a.run("equipmentOf(exById('ex113'))"),'other');
+ assert.equal(a.run("equipmentOf({custom:true})"),'unknown');
+ a.run("openPicker('day');P.part='가슴';P.q='프레스';P.equipment=['dumbbell'];P.selected=['ex000']");
+ assert.equal(a.run('pickerExercises().length'),2);
+ assert.equal(a.run("P.selected.join(',')"),'ex000');
+});
+
+test('progression application preserves warmup and completed sets and supports guarded undo',()=>{
+ const a=app({'2026-11-02':day([item('ex000',[set(40,12),set(40,12),set(40,12)])],{finishedAt:1})});
+ a.run("S.exercises[0].progression={min:8,max:12,sets:3,step:2.5};window.w=ensureWorkout(todayKey());window.it=makeItem('ex000',[{kg:'20',reps:'10',warm:true,type:'warm',done:true},{kg:'40',reps:'12',done:true},...blankSets(2)]);window.w.items.push(window.it)");
+ assert.equal(a.run('applyProgression(window.it,todayKey())'),true);
+ assert.equal(a.run("window.it.sets.map(s=>s.kg).join(',')"),'20,40,42.5,42.5');
+ assert.equal(a.run('undoProgression(window.it,todayKey())'),true);
+ assert.equal(a.run('window.it.sets[2].kg'),'');
+ a.run("applyProgression(window.it,todayKey());window.it.sets[2].reps='9'");
+ assert.equal(a.run('undoProgression(window.it,todayKey())'),false);
+ a.run('window.w.finishedAt=1');assert.equal(a.run('applyProgression(window.it,todayKey())'),false);
+ assert.equal(a.run("applyProgression(window.it,'2026-11-02')"),false);
+});
+test('progression skips duplicates, ignores warmups, and survives normalize and remote round trips',()=>{
+ const a=app();
+ a.run("S.exercises[0].progression={min:8,max:12,sets:3,step:2.5}");
+ assert.ok(a.run("progressionTarget('ex000',todayKey()).reason"));
+ a.run("S.workouts['2026-11-02']={finishedAt:1,items:[makeItem('ex000',[{kg:'10',reps:'5',done:true,warm:true},...Array.from({length:3},()=>({kg:'40',reps:'12',done:true}))])]};normalize()");
+ assert.equal(a.run("progressionTarget('ex000',todayKey()).kg"),42.5);
+ a.run("applyRemote('exercises',JSON.parse(JSON.stringify(S.exercises)));normalize()");
+ assert.equal(a.run('S.exercises[0].progression.step'),2.5);
+ a.run("S.workouts['2026-11-02'].items.push(makeItem('ex000',blankSets(3)))");
+ assert.ok(a.run("progressionTarget('ex000',todayKey()).reason"));
+ a.run("S.exercises[0].mode='reps';normalize()");assert.equal(a.run('S.exercises[0].progression'),undefined);
+ assert.equal(a.run('Object.values(EQUIPMENT_IDS).flat().length'),120);
+ assert.equal(a.run('new Set(Object.values(EQUIPMENT_IDS).flat()).size'),120);
 });
